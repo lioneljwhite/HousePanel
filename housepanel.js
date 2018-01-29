@@ -115,8 +115,8 @@ function setupSaveButton() {
     $("#submitoptions").click(function(evt) {
         var sheet = document.getElementById('customtiles').sheet;
         var sheetContents = "";
-        c=sheet.cssRules;
-        for(j=0;j<c.length;j++){
+        var c=sheet.cssRules;
+        for(var j=0;j<c.length;j++){
             sheetContents += c[j].cssText;
         };
         var regex = /[{;}]/g;
@@ -364,6 +364,7 @@ function fixTrack(tval) {
 function updateTile(aid, presult) {
 
     // do something for each tile item returned by ajax call
+    var iconid = "#a-"+aid+"-icon";
     $.each( presult, function( key, value ) {
         var targetid = '#a-'+aid+'-'+key;
 
@@ -400,6 +401,10 @@ function updateTile(aid, presult) {
             {
                 $(targetid).removeClass(oldvalue);
                 $(targetid).addClass(value);
+                
+                // update the icon
+                $(iconid).removeClass(oldvalue);
+                $(iconid).addClass(value);
             }
 
             // update the content 
@@ -662,7 +667,6 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
 // this used to be done by page but now it is done by sensor type
 function setupPage(trigger) {
    
-    // alert("setting up " + trigger);
     var actionid = "div." + trigger;
 
     $(actionid).click(function() {
@@ -680,61 +684,44 @@ function setupPage(trigger) {
 
         // get target id and contents
         var targetid = '#a-'+aid+'-'+subid;
-        var thevalue;
+        var thevalue, oldvalue = $(targetid).html();
+        var iconid = '#a-'+aid+'-icon';
         
-        // for switches and locks set the command to toggle
-        // for most things the behavior will be driven by the class value = swattr
-        if (thetype==="switch" || thetype==="lock" || 
-            thetype==="switchlevel" ||thetype==="bulb" || thetype==="light") {
-            thevalue = "toggle";
-        } else {
-            thevalue = $(targetid).html();
-        }
-
         // alert('aid= ' + aid +' bid= ' + bid + ' targetid= '+targetid+ ' subid= ' + subid + ' type= ' + thetype + ' class= ['+theclass+'] value= '+thevalue);
+        var onoff = getOnOff(thetype);
+        if ( oldvalue==onoff[0]) { thevalue= onoff[1]; }
+        else { thevalue= onoff[0]; }
 
-        // turn momentary items on or off temporarily
+        // turn momentary and piston items on or off temporarily
+        // logic was updated to use new icon feature
+        // also changed to use updateTile here as done elsewhere for consistency
         if (thetype==="momentary" || thetype==="piston") {
             var tarclass = $(targetid).attr("class");
-            var that = targetid;
+            var iconclass = $(iconid).attr("class");
             // define a class with method to reset momentary button
-            var classarray = [$(that), tarclass, thevalue];
+            var classarray = [$(targetid), tarclass, oldvalue, $(iconid), iconclass];
             classarray.myMethod = function() {
                 this[0].attr("class", this[1]);
                 this[0].html(this[2]);
+                this[3].attr("class", this[4]);
             };
             $.post("housepanel.php", 
                 {useajax: "doaction", id: bid, type: thetype, value: thevalue, attr: theclass},
                 function(presult, pstatus) {
-                    // alert("pstatus= "+pstatus+" len= "+lenObject(presult)+" presult= "+strObject(presult));
                     if (pstatus==="success" && presult!==undefined && presult!==false) {
-                        if (thetype==="piston") {
-                            $(that).addClass("firing");
-                            $(that).html("firing");
-                        }
-                        else if ( thevalue && thevalue.hasOwnProperty("indexOf") && thevalue.indexOf("on") >= 0 ) {
-                            $(that).removeClass("on");
-                            $(that).addClass("off");
-                            $(that).html("off");
-                        } else {
-                            $(that).removeClass("off");
-                            $(that).addClass("on");
-                            $(that).html("on");
-                        }
+                        updateTile(aid, presult);
                         setTimeout(function(){classarray.myMethod();}, 1500);
                     }
                 });
-//        } else if (thetype==="switch" || thetype==="lock" || thetype==="switchlevel" ||
-//                   thetype==="thermostat" || thetype==="music" || thetype==="bulb" ) {
         // now we invoke action for everything
         // within the groovy code if action isn't relevant then nothing happens
         } else {
+            
             // alert("id= "+bid+" type= "+thetype+" value= "+thevalue+" class="+theclass);
             $.post("housepanel.php", 
                    {useajax: "doaction", id: bid, type: thetype, value: thevalue, attr: theclass},
                    function (presult, pstatus) {
-                        if (pstatus==="success" ) {
-                            // alert( strObject(presult) );
+                        if (pstatus==="success" && presult!==undefined && presult!==false ) {
                             updAll(trigger,aid,bid,thetype,presult);
                         }
                    }, "json"

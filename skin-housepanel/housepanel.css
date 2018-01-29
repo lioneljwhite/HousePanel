@@ -1215,34 +1215,6 @@ div.panel-all div.firing, div.panel-all div.piston.pistonName {
 
 /* Place all your customization edits below to make updates simple */
 /* uncomment the display inline-block line and customize to create adhoc text or images */
-div.custom {
-    /* display: inline-block; */
-    display: none;
-    margin: 3px;
-    text-align: center;
-    vertical-align: top;
-    border-top: 0px solid #cccccc; 
-    border-right: 0px solid #cccccc;
-    border-bottom: 0px solid #ffffff; 
-    border-left: 0px solid #ffffff;
-    background-color: rgba(0, 51, 204, 0.6);
-    box-shadow: 2px 2px 7px black;
-    color: #eeeeee;
-    cursor: default;
-    width: 120px; 
-    height: 160px;
-}
-
-div.custom3-bedroom {
-    display: inline-block;
-    background-color: rgba(0, 0, 0, 0.1);
-}
-div.custom3-bedroom::before {
-    content: "Enjoy a Good Night Sleep";
-}
-
-/* Example custom settings from Ken's home */
-/* you should remove these since they will likely do nothing */
 
 /* images - can be customized to show any valid jpg or png on the web */
 div.image.url.img1 {

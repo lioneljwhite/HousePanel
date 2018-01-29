@@ -1,15 +1,3 @@
-function getTileNumber() {
-	return $(".tileDisplay:first").attr('id');
-}
-
-function getToggleStatus() {
-//	if($('#tileImage_on').is(":visible")) {
-//		return "#tileImage_on";
-//	}
-//	return "#tileImage_off";
-    return "#a-0-";
-}
-
 function getOnOff(str_type) {
     var onoff = ["",""];
     
@@ -125,43 +113,15 @@ function toggleTile(target, thingindex) {
     }
 
     var obj = new Object()
-    switch (swval) {
-        case "off":
-            obj[swtype] = "on";
-            break;
-
-        case "on":
-            obj[swtype] = "off";
-            break;
-
-        case "open":
-            obj[swtype] = "closed";
-            break;
-
-        case "closed":
-            obj[swtype] = "open";
-            break;
-
-        case "unlocked":
-            obj[swtype] = "locked";
-            break;
-
-        case "locked":
-            obj[swtype] = "unlocked";
-            break;
-
-        case "active":
-            obj[swtype] = "inactive";
-            break;
-
-        case "inactive":
-            obj[swtype] = "active";
-            break;
-
-    }
-    if ( Object.keys(obj).length ) {
+    var onoff = getOnOff(swtype);
+    if ( swval==onoff[0] ) {
+        obj[swtype] = onoff[1];
+        updateTile('0', obj );
+    } else if ( swval==onoff[1] ) {
+        obj[swtype] = onoff[0];
         updateTile('0', obj );
     }
+    
 
     $("#noIcon").attr('checked', false);
 	
@@ -172,8 +132,8 @@ function toggleTile(target, thingindex) {
 	}
 };
 
-
-function initDialogBinds(str_type, thingindex, str_on, str_off) {
+// modified 1/27/18 to get on/off from js type function
+function initDialogBinds(str_type, thingindex) {
 	
         var obj = {type: str_type, pid: thingindex};
         
@@ -187,9 +147,10 @@ function initDialogBinds(str_type, thingindex, str_on, str_off) {
         // set up the trigger for only the tile being edited
         // and use the real tile div as the target
         var trigger = "div." + str_type;
-        if ( str_on ) trigger += "." + str_on;
-        if ( str_off ) {
-            trigger += ",div." + str_type + "." + str_off;
+        var onoff = getOnOff(str_type);
+        if (onoff[0]) { trigger += onoff[0]; }
+        if ( onoff[1] ) {
+            trigger += ",div." + str_type + onoff[1];
         }
         $(trigger).bind('click', function(event) {
             toggleTile(event.target, thingindex);
@@ -227,26 +188,10 @@ function initDialogBinds(str_type, thingindex, str_on, str_off) {
 		var cssRuleTarget = getCssRuleTarget('head', str_type, thingindex);
 		if($("#noHead").is(':checked')){
 			addCSSRule(cssRuleTarget, "display: none;", 1);
-
-//			cssRuleTarget = "div.ovCaption.vc_" + getTileNumber();
-//			cssRuleTarget = "div.ovCaption.vc_" + getTileNumber();
-//			addCSSRule(cssRuleTarget, "visibility: visible;", 1);
-//						console.log(cssRuleTarget);
-//			cssRuleTarget = "div.ovStatus.vs_" + getTileNumber();
-//			addCSSRule(cssRuleTarget, "visibility: visible;", 1);
-//						console.log(cssRuleTarget);
 		} else {
 			addCSSRule(cssRuleTarget, "display: inline-block;", 0);
-//			var rule = "width: " + ($("#wysISwyg").width() - 2) + "px;";
 			var rule = "width: " + ($("#t-0").width() - 2) + "px;";
 			addCSSRule(getCssRuleTarget('head', str_type, thingindex), rule);
-
-//			cssRuleTarget = "div.ovCaption.vc_" + getTileNumber();
-//			addCSSRule(cssRuleTarget, "", 1);
-//						console.log(cssRuleTarget);
-//			cssRuleTarget = "div.ovStatus.vs_" + getTileNumber();
-//			addCSSRule(cssRuleTarget, "", 1);
-//						console.log(cssRuleTarget);		
 		}
 	});	
 	
@@ -453,7 +398,7 @@ function colorpicker() {
 	dh += "</div>";	
     return dh;
 }
-function editTile(str_type, thingindex, str_on, str_off) {  
+function editTile(str_type, thingindex) {  
 	$('#edit_Tile').empty();
 	
 	//*DIALOG START*	
@@ -465,7 +410,7 @@ function editTile(str_type, thingindex, str_on, str_off) {
 	dialog_html += "<div id='tileEdit'>";	
 	
 	//TOP LEFT
-        dialog_html += upleft();
+    dialog_html += upleft();
         
 	//CENTER LEFT - ICON LIST
 	dialog_html += iconlist();
@@ -477,12 +422,12 @@ function editTile(str_type, thingindex, str_on, str_off) {
 	//editSection (Toggle)
 	dialog_html += "<div id='editSection'>";
         
-        dialog_html += uploadform();
+    dialog_html += uploadform();
 	dialog_html += fontpicker();
 	dialog_html += effectspicker();
 	dialog_html += sizepicker();
 
-        dialog_html += "</div>";
+    dialog_html += "</div>";
 	//End: editSection (Toggle)
         
 	dialog_html += "</div>";
@@ -510,7 +455,7 @@ function editTile(str_type, thingindex, str_on, str_off) {
 	//*DIALOG END*
 			
 	//Fill Dialog and Initial Display
-        // use jQuery safer cross browser function
+    // use jQuery safer cross browser function
 	$("#edit_Tile").html(dialog_html);
         
         // use the real routine to get a true wysiwyg and put it into html
@@ -532,7 +477,7 @@ function editTile(str_type, thingindex, str_on, str_off) {
             dialog.show();
             $('#tileImage_off').hide();
 
-            initDialogBinds(str_type, thingindex, str_on, str_off);
+            initDialogBinds(str_type, thingindex);
             pickColor('icon', str_type, thingindex);
             section_Toggle('icon', str_type);
             
@@ -671,22 +616,33 @@ function relayColor(str_type, thingindex) {
     }
 };
 
+// return color items and transparency in an array
 function rgb2hex(colorVal) {
-	try {
-		if (colorVal.indexOf("#") !== -1)
-			return colorVal
-		else {
-			colorValue = colorVal.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*(.+)?\)$/);
-			return "#" + hex(colorValue[1]) + hex(colorValue[2]) + hex(colorValue[3]);
-		}
-	}
-	catch(err) {
-		// Start infinite loop :0)~ I'm tired. getcomputedstyle not working if the bgcolor isn't set. 
-		// Also tried == null and !== rgba(0,0,0,0). I just need the parent bgcolor if icon bgcolor isn't defined.
-                // fixed regex... was missing a syntax element - now works fine
-                // default below should never be used - but we also grab above the transparency value
-		return "#0033cc";
-	}
+    var red = 127;
+    var green = 127;
+    var blue = 127;
+    var transp = 1;
+    var rgba = colorVal;
+    var colorValue;
+    if (colorVal.indexOf("#")===0 && colorVal.length===7) {  // #rrggbb
+        red = parseInt(colorVal.substring(1,3),16);
+        green = parseInt(colorVal.substring(3,5),16);
+        blue = parseInt(colorVal.substring(5,7),16);
+    } else if (colorVal.indexOf("#")===0 && colorVal.length===4) {  // #rgb
+        red = 240 + parseInt(colorVal.substring(1,2),16);
+        green = 240 + parseInt(colorVal.substring(2,3),16);
+        blue = 240 + parseInt(colorVal.substring(3,4),16);
+    } else if ( colorValue = colorVal.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*(.+)\)$/) ) {
+        red = colorValue[1];
+        green = colorValue[2];
+        blue = colorValue[3];
+        transp = colorValue[4];
+    } else if ( colorValue = colorVal.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/) ) {
+        red = colorValue[1];
+        green = colorValue[2];
+        blue = colorValue[3];
+    }
+    return [red, green, blue, transp];
 };
 
 function hex(x) {

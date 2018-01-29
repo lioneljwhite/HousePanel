@@ -99,9 +99,11 @@ define('DEBUG4', true);
 error_reporting(E_ERROR);
 
 // header and footer
+// change to html document type in header
 function htmlHeader($skindir="skin-housepanel") {
-    $tc = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">';
-    $tc.= '<html><head><title>House Panel</title>';
+//    $tc = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">';
+    $tc = '<!DOCTYPE html>';
+    $tc.= '<html lang="en"><head><title>House Panel</title>';
     $tc.= '<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">';
     $tc.= '<meta name="msapplication-TileColor" content="#2b5797">';
     $tc.= '<meta name="msapplication-TileImage" content="media/mstile-144x144.png">';
@@ -385,6 +387,7 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
     $pnames = processName($thesensor["name"], $thingtype);
     $thingname = $pnames[0];
     $subtype = $pnames[1];
+    $iconstate = "";
     
     // wrap thing in generic thing class and specific type for css handling
     // IMPORTANT - changed tile to the saved index in the master list
@@ -395,14 +398,6 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
         $tc.= "style=\"position: relative; left: $posleft" . "px" . "; top: $postop" . "px" . ";\"";
     }
     $tc.= ">";
-
-    // add a hidden field for passing thing type to js
-    // $tc.= hidden("type-$i", $thingtype, "type-$i");
-    // $tc.= hidden("id-$i", $bid, "id-$i");
-    // $tc.= hidden("panel-$i", $panelname, "panel-$i");
-    // print out the thing name wrapped with tags for javascript to react to
-    // status class will be the key to trigger click action. That will read $i attribute
-    // wrap the name of the thing in this class to trigger hover and click and styling
     
     // special handling for weather tiles
     if ($thingtype==="weather") {
@@ -477,6 +472,7 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
         $tc.= "}        </script>";
         $tc.= "</video>";
         $tc.= "</div>";
+        $j = 1;
         
     } else {
 
@@ -492,7 +488,6 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
         // for multiple attribute things we provide a separate item for each one
         // the first class tag is the type and a second class tag is for the state - either on/off or open/closed
         // ID is used to send over the groovy thing id number passed in as $bid
-        // for multiple row ID's the prefix is a$j-$bid where $j is the jth row
         if (is_array($thingvalue)) {
             $j = 0;
             
@@ -502,37 +497,41 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
                 $cval = $thingvalue["color"];
                 if ( preg_match("/^#[abcdefABCDEF\d]{6}/",$cval) ) {
                     $bgcolor = " style=\"background-color:$cval;\"";
-                    $tc.= putElement($kindex, $i, $j, $thingtype, $cval, "color", $subtype);
+                    $tc.= putElement($kindex, $i, $j, $thingtype, $cval, "color", $subtype, $bgcolor);
                     $j++;
                 }
             }
-
-			$vStatus = "";
-			$vLevel = 80;
+            
             foreach($thingvalue as $tkey => $tval) {
                 // skip if ST signals it is watching a sensor that is failing
                 // also skip the checkInterval since we never display this
+                // and skip color because we put that out above first
                 if ( strpos($tkey, "DeviceWatch-") === FALSE &&
                      strpos($tkey, "checkInterval") === FALSE && $tkey!=="color" ) { 
-                    $tc.= putElement($kindex, $i, $j, $thingtype, $tval, $tkey, $subtype, $bgcolor);				
+                    $tc.= putElement($kindex, $i, $j, $thingtype, $tval, $tkey, $subtype, $bgcolor);
+                    
+                    // set the icon state
+                    if ( $tval && !is_numeric($tval) ) {
+                        $iconstate = $tval;
+                    }
+                    
                     $j++;									
                 }
             }
-//				//Add overlay wrapper
-//				$tc.= "<div class=\"overlay v_$kindex\">";
-//				$tc.= "<div class=\"ovCaption vc_$kindex\">" . substr($thingvalue["name"],0,20) . "</div>";
-//				if($thingvalue["battery"]) {
-//					$tc.= "<div class=\"ovBattery " . $thingvalue["battery"] . " vb_$kindex\">";
-//					$tc.= "<div style=\"width: " . $thingvalue["battery"] . "%\" class=\"ovbLevel L" . (string)$thingvalue["battery"] . "\"></div></div>";
-//					next($thingvalue);	
-//				}
-//				$tc.= "<div class=\"ovStatus vs_$kindex\">" . next($thingvalue) . "</div>";
-//				$tc.= "</div>";
-				
+            
+        // the single line below is a legacy holdover that should now never be used
         } else {
             $tc.= putElement($kindex, $i, 0, $thingtype, $thingvalue, "value", $subtype);
+            $j = 1;
         }
     }
+
+    // write an icon element for every tile - this is a new approach to handling icons
+    // the js file adds state to this element when clicking happens and then
+    // styling will cause the visual to change based on what is in the CSS file
+    // this makes all tiles handle icons on the same element
+    $tc.= putElement($kindex, $i, $j, $thingtype, $iconstate, "icon", $subtype);
+
     $tc.= "</div>";
     return $tc;
 }
@@ -572,7 +571,7 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
         // add state of thing as a class if it isn't a number and is a single word
         // also prevent dates from adding details
         // and finally if the value is complex with spaces or other characters, skip
-        $extra = ($tkey==="track" || $thingtype=="clock" || $tkey==="color" ||
+        $tilestate = ($tkey==="track" || $thingtype=="clock" || $tkey==="color" ||
                   is_numeric($tval) || $thingtype==$tval ||
                   $tval=="" || strpos($tval," ") || strpos($tval,"\"") ) ? "" : " " . $tval;    // || str_word_count($tval) > 1
         
@@ -583,6 +582,8 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
             $powmod = intval($tval);
             $powmod = (string)($powmod - ($powmod % 10));
             $tval = "<div style=\"width: " . $tval . "%\" class=\"ovbLevel L" . $powmod . "\"></div>";
+        } else if ( $tkey == "icon") {
+            $tval = "";
         }
         
         // for music status show a play bar in front of it
@@ -604,7 +605,7 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
         } else {
             $tkeyshow = " ".$tkey;
         }
-        // include class for main thing type, the subtype, a sub-key, and a state (extra)
+        // include class for main thing type, the subtype, a sub-key, and a state
         // make background the color based on value
         if ( $bgcolor && $tkey=="color" ) {
             $colorval = $bgcolor;
@@ -612,7 +613,7 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
             $colorval = "";
         }
         $tc.= "<div class=\"overlay $tkey v_$kindex\">";
-        $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" title=\"$tkey\"$colorval class=\"" . $thingtype . $subtype . $tkeyshow . " p_$kindex" . $extra . "\" id=\"a-$i-$tkey" . "\">" . $tval . "</div>";
+        $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" title=\"$tkey\"$colorval class=\"" . $thingtype . $subtype . $tkeyshow . " p_$kindex" . $tilestate . "\" id=\"a-$i-$tkey" . "\">" . $tval . "</div>";
         $tc.= "</div>";
     }
     return $tc;
@@ -1262,43 +1263,18 @@ function getOptionsPage($options, $retpage, $allthings, $sitename) {
         $tc.= "</td>";
 
         // For custom tiles: Only show edit button for types that are working
+        // str_type is the element tied to customizable icons on the tile
+        // the default is the type unless otherwise specified
         $str_type=$thetype;
-        $str_on="";
-        $str_off="";
         $str_edit="";
         switch ($thetype) {
         
-            case "switch":
             case "switchlevel":
             case "bulb":
             case "light":
                 $str_type="switch";
-                $str_on="on";
-                $str_off="off";
                 break;
-            
-            case "momentary":
-                $str_on="on";
-                $str_off="off";
-                break;
-                
-            case "contact":
-            case "door":
-            case "valve":
-                $str_on="open";
-                $str_off="closed";
-                break;
-                
-            case "motion":
-                $str_on="active";
-                $str_off="inactive";
-                break;      
-                         
-            case "lock":
-                $str_on="locked";
-                $str_off="unlocked";
-                break;
-            
+                                
             case "clock":
                 $str_type = "time";
                 break;
@@ -1310,14 +1286,23 @@ function getOptionsPage($options, $retpage, $allthings, $sitename) {
             
             case "piston":
                 $str_type = "pistonName";
-                $str_on="firing";
-                $str_off="idle";
                 break;
             
             case "video":
                 $str_edit="hidden";
                 break;
-                
+            
+            // use the name for these tiles
+            case "weather":
+            case "image":
+            case "routine":
+            case "music":
+            case "mode":
+            case "smoke":
+            case "other":
+                $str_type="name";
+                break;
+                            
 //            default:
 //            	$str_edit="hidden";
         }       
@@ -1325,7 +1310,7 @@ function getOptionsPage($options, $retpage, $allthings, $sitename) {
         $thingname = $thesensor["name"];
         $iconflag = "editable " . strtolower($thingname);
         
-        $tc.= "<td class=\"customedit\"><span id=\"btn_$thingindex\" class=\"btn $str_edit\" onclick=\"editTile('$str_type', '$thingindex', '$str_on', '$str_off')\">Edit</span></td>";
+        $tc.= "<td class=\"customedit\"><span id=\"btn_$thingindex\" class=\"btn $str_edit\" onclick=\"editTile('$str_type', '$thingindex')\">Edit</span></td>";
         $tc.= "<td class=\"customname\"><span class=\"n_$thingindex\">$thingname</span></td>";
 
         // loop through all the rooms in proper order

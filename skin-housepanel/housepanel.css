@@ -369,7 +369,7 @@ div.thing {
     border-left: 0px solid #ffffff;
     background-color: rgba(0, 51, 204, 0.6);
     box-shadow: 2px 2px 7px black;
-    color: #eeeeee;
+    color: rgba(255,255,242,1);
     cursor: default;
     width: 120px; 
     height: auto;
@@ -400,19 +400,23 @@ div.contact, div.music, div.thermostat, div.presence, div.piston, div.valve, div
 }
 
 div.switch.on, div.switch.off, div.light.on, div.light.off,
-div.presence.present, div.presence.absent,
-div.valve.open, div.valve.closed, div.momentary.on, div.momentary.off {
-    height: 112px;
-}
-
-div.lock.locked, div.lock.unlocked, div.lock.unknown, div.motion.active, div.motion.inactive,
+div.presence.present, div.presence.absent, 
+div.switchlevel.on, div.switchlevel.off, div.bulb.on, div.bulb.off,
+div.valve.open, div.valve.closed, div.momentary.on, div.momentary.off,
+div.lock.locked, div.lock.unlocked, div.lock.unknown, 
+div.motion.active, div.motion.inactive,
+div.piston.idle, div.piston.firing, div.door.open, div.door.closed,
 div.contact.open, div.contact.closed {
+    background-position: center center;  
+    font-size: 12px;
     height: 112px;
 }
 
 /* items that have a pointer */
 div.switch, div.bulb, div.light, div.switchlevel, div.momentary, 
-div.lock, div.mode.themode, div.piston, div.valve, div.routine.label {
+div.lock, div.mode.themode, div.piston, div.valve, div.routine.label,
+div.piston, div.door.garage, div.music-controls,
+div.thermostat.thermofan, div.thermostat.thermomode {
     cursor: pointer;
 }
 
@@ -434,205 +438,198 @@ div.thingname:hover {
     color: #cccccc;
 }
 
-/* style the on and off states of things to not show up */
-/* set size to show text to avoid funky resizing, but use transparent color */
-div.open, div.closed, div.inactive, div.active, div.locked, div.unlocked, div.unknown, 
-div.on, div.off, div.present, div.absent, div.firing, div.piston.pistonName {
-  background-position: center center;  font-size: 12px;
-  color: rgba(255,255,255,0.01);
+
+/* style the fonts */
+div.switch.self, div.contact.self, div.door.self, div.motion.self,
+div.lock.self, div.presence.self, div.momentary.self,
+div.piston.pistonName, div.piston.self, 
+div.switchlevel.switch, div.bulb.switch, div.light.switch {
+    z-index: 50;
+    font-size: 14pt;
+    color: rgba(255,255,242,0.8);
+    height: 112px;
+}
+
+/* make all lights bigger to match dimmers */
+div.switch.self, div.switchlevel.switch, div.bulb.switch, div.light.switch {
+    height: 140px;
 }
 
 /* alter the thermostat on and off to show since we don't use an icon here */
 div.thermostat.thermomode.off, div.thermostat.thermofan.off,
 div.thermostat.thermomode.on, div.thermostat.thermofan.on {
 	font-size: 11pt;
-        color: #ffffff;
+    color: rgba(255,255,242,1);
 }
 
-/* contact styling - note we changed to generic contact */
-div.contact.open {
-    background-image: url('icons/opencontact.png');
-    background-color: rgba(27,177,75,0.3);
-    
-
-}
-div.contact.closed {
-    background-image: url('icons/closecontact.png');
-    background-color: rgba(27,177,75,0.3);
-    
-    
-
-}
-
-/* specific contact types one might find */
-div.door.open, div.contact.door.closed {
-    background-image: url('icons/opendoor.png');
-    background-color: rgba(27,177,75,0.3);
-    background-size: 40px;
-    cursor: pointer;
-}
-div.door.closed, div.contact.door.closed {
-    background-image: url('icons/closedoor.png');
-    background-color: rgba(27,177,75,0.3);
-    background-size: 40px;
-    cursor: pointer;
-}
 /* hide the contact part of garage doors that include an embedded contact sensor */
-div.door-thing div.overlay.contact, div.garage.door.contact {
+div.door-thing div.overlay.contact {
     display: none;
 }
-div.contact.window.open {
-    background-image: url('icons/openwindow.png');
-}
-div.contact.window.closed {
-    background-image: url('icons/closewindow.png');
-}
-div.door.garage.open {
-    background-image: url('icons/garage-opened.png');
-    background-size: 80px;
-    height: 112px;
-    cursor: pointer;
-}
-div.door.garage.closed {
-    background-image: url('icons/garage-closed.png');
-    background-size: 80px;
-    height: 112px;
-    cursor: pointer;
-}
-div.valve.open {
-    background-image: url('icons/sprinkler-on.png');
-    background-color: rgba(27,177,75,0.3);
-    height: 112px;
-}
-div.valve.closed {
-    background-image: url('icons/sprinkler-off.png');
-    background-color: rgba(0, 51, 204, 0.3);
-    height: 112px;
-}
-div.valve.switch, div.valve.contact {
+/* hide switch and contact part of valves */
+div.valve-thing div.overlay.switch, 
+div.valve-thing div.overlay.contact {
     display: none;
 }
+
 /* special handling of garage entry which is a door */
-div.contact.garage.entry.open {
+div.contact.garage.entry.icon.open {
     background-image: url('icons/opendoor.png');
     background-size: 40px;
-    height: 112px;
 }
-div.contact.garage.entry.closed {
+div.contact.garage.entry.icon.closed {
     background-image: url('icons/closedoor.png');
     background-size: 40px;
-    height: 112px;
 }
-
-/* motion styling */
-div.motion.inactive {
-    background-image: url('icons/stand.png');
-    background-color: rgba(0, 51, 204, 0);
-}
-div.motion.active {
-    background-image: url('icons/run.png');
-    background-color: rgba(0, 51, 204, 0);
-}
-div.battery {
-    display: none;
-}
-
-/*
-div.motion.battery, div.contact.battery, 
-div.lock.battery {
-    height: 0px; font-size: 9pt; color: #ffffff;
-	display: none;
-}
-div.motion.battery::before, div.contact.battery::before, div.lock.battery:before {
-    content: "Battery: ";
-}
-div.motion.battery::after, div.contact.battery::after, div.lock.battery::after {
-    content: " %";
-}
-*/
-/*
-div.motion.temperature::before {
-    content: "T: ";
-}
-div.motion.temperature::after {
-    content: " degF";
-}
-*/
-
-/* lock styling */
-div.lock.locked {
-    background-image: url('icons/lock.png');
-    background-color: rgba(153, 0, 51, 1);
-    background-size: 80px;
-    background-position-y: 50px;
-}
-div.lock.unlocked, div.lock.unknown {
-    background-image: url('icons/unlock.png');
-    background-color: rgba(0, 102, 51, 1);
-    background-size: 70px;
-    background-position-y: 40px;
-}
-div.thing.lock-thing {
-    background-color: rgba(153, 0, 51, 1);
-}
-
-/* switch styling */
-
-div.switch.on, div.switch.light.on, div.switchlevel.on, div.bulb.on, div.light.on {
-    background-image: url('icons/bulbon.png');
-    background-color: rgba(0, 51, 204, 0.1);
-}
-div.switch.off, div.switch.light.off, div.switchlevel.off, div.bulb.off, div.light.off {
-    background-image: url('icons/bulboff.png');
-    background-color: rgba(0, 51, 204, 0.1);
-}
-div.switch.plug.on {
+/* special handling of plugs */
+div.switch.plug.icon.on {
     background-image: url('icons/plugon.png');
     background-color: rgba(204, 51, 0, 0.3);
-    height: 112px;
 }
-div.switch.plug.off {
+div.switch.plug.icon.off {
     background-image: url('icons/plugoff.png');
     background-color: rgba(0, 51, 204, 0.3);
-    height: 112px;
 }
+div.piston.pistonName {
+    color: rgba(255,255,255,1);
+    font-size: 14pt;
+}
+
+/* new icon approach */
+/* use overlay to position all icons on the top
+ * and to set the size and then set an image only with icon tag
+ * this way any tile can have an icon in the background if desired
+ * but not all tiles will look good with an icon - although any
+ * icon can be faded out using transparency setting as well
+ */
+div.overlay.icon {
+	position: absolute; 
+    top: 32px; left: 0px;
+	z-index: 1;
+}
+
+div.icon.on, div.icon.off,
+div.icon.open, div.icon.closed,
+div.icon.active, div.icon.inactive,
+div.icon.absent, div.icon.present,
+div.icon.idle, div.icon.firing,
+div.icon.locked, div.icon.unlocked {
+    background-position: center center;  font-size: 12px;
+    background-position-y: 24px;
+    border: none;
+    background-color: rgba(10, 10, 10, 0.01);
+    background-size: 50px;
+}
+div.temperature.icon, div.weather.icon, 
+div.thermostat.icon, div.temperature.weather.icon,
+div.temperature.thermostat.icon {
+    display: none;
+}
+div.switch.icon.on, div.switchlevel.icon.on, 
+div.bulb.icon.on, div.light.icon.on {
+    background-image: url('icons/bulbon.png');
+}
+div.switch.icon.off, div.switchlevel.icon.off, 
+div.bulb.icon.off, div.light.icon.off {
+    background-image: url('icons/bulboff.png');
+}
+div.motion.icon.active {
+    background-image: url('icons/run.png');
+}
+div.motion.icon.inactive {
+    background-image: url('icons/stand.png');
+}
+div.lock.icon.locked {
+    background-image: url('icons/lock.png');
+}
+div.lock.icon.unlocked, div.lock.icon.unknown {
+    background-image: url('icons/unlock.png');
+}
+div.valve.icon.open {
+    background-image: url('icons/sprinkler-on.png');
+}
+div.valve.icon.closed {
+    background-image: url('icons/sprinkler-off.png');
+}
+div.contact.icon.open {
+    background-image: url('icons/opencontact.png');
+    background-color: rgba(27,177,75,0.3);
+}
+div.contact.icon.closed {
+    background-image: url('icons/closecontact.png');
+    background-color: rgba(27,177,75,0.3);
+}
+div.door.icon.open {
+    background-image: url('icons/opendoor.png');
+    background-color: rgba(27,177,75,0.3);
+}
+div.door.icon.closed {
+    background-image: url('icons/closedoor.png');
+    background-color: rgba(27,177,75,0.3);
+}
+div.contact.window.icon.open {
+    background-image: url('icons/openwindow.png');
+    background-color: rgba(27,177,75,0.3);
+}
+div.contact.window.icon.closed {
+    background-image: url('icons/closewindow.png');
+    background-color: rgba(27,177,75,0.3);
+}
+div.door.garage.icon.open {
+    background-image: url('icons/garage-opened.png');
+    background-size: 80px;
+}
+div.door.garage.icon.closed {
+    background-image: url('icons/garage-closed.png');
+    background-size: 80px;
+}
+div.momentary.icon.off {
+    background-image: url('icons/3dbutton.png');
+}
+div.momentary.icon.on {
+    background-image: url('icons/3dbuttonpush.png');
+}
+div.piston.icon.idle {
+    background-image: url('icons/piston.png');
+    background-size: 60px;
+}
+div.piston.icon.firing {
+    background-image: url('icons/pistonfiring.png');
+    background-size: 60px;
+}
+div.presence.icon.present {
+    background-image: url('icons/boypresent.png');
+}
+div.presence.icon.absent {
+    background-image: url('icons/boyabsent.png');
+}
+/* girl sillhouette for wife's phone */
+div.presence.jana.icon.present {
+    background-image: url('icons/girlpresent.png');
+}
+div.presence.jana.icon.absent {
+    background-image: url('icons/girlabsent.png');
+}
+
+
 /* enable this if you want to show levels for switches and bulbs */
 /* this will duplicate the switchlevel functionality */
 div.switch.level {
     display: none;
 }
 
-/* old style power and energy is commented out */
-/*div.switch.energy, div.switchlevel.energy {
-    height: 14px; font-size: 9pt; 
-    background-color: rgb(51,204,0); 
-    color: #ffffff;
-}
-div.switch.power, div.switchlevel.power {
-    height: 14px; font-size: 9pt; 
-    background-color: rgb(51,204,0); 
-    color: #ffffff;
-}
-div.switch.energy::before, div.switchlevel.energy:before {
-    content: "E (KwH): ";
-}
-div.switch.power::before, div.switchlevel.power:before {
-    content: "P (W): ";
-}*/
-/* new style uses overlay to put in bottom right corner */
-
 div.overlay.power, div.overlay.energy {
 	position: absolute; top: 32px; left: 0px;
 	z-index: 20;
-        border: none;
-        background: none;
-	height: auto;
+    border: none;
+    background-color: rgba(250, 250, 250, 1);
+	height: 14px;
 }
 div.switch.power {
     z-index: 21;
     display: block;
     float: left;
-    height: 12px;
+    /*height: 12px;*/
     text-align: left;
     color: rgba(10,96,10,1);
     font-weight: bold;
@@ -643,30 +640,16 @@ div.switch.energy {
     z-index: 21;
     display: block;
     float: right;
-    height: 12px;
+    /*height: 12px;*/
     text-align: right;
     color: rgba(10,96,10,1);
     font-weight: bold;
     font-size: 10pt;
 }
 
-/* switchlevel / dimmer styling - make room for the dimmer controls */
-/* if you have a dimmer with power and energy controls - see custom below */
-div.switchlevel.switch, div.bulb.switch {
-    height: 80px;
-}
+/* set size of dimmer bar */
 div.switchlevel.level, switchlevel.colorTemperature, switchlevel.hue, switchlevel.saturation {
     height: 32px;
-}
-
-/* momentary styling */
-div.momentary.off, div.momentary.on{
-    background-image: url('icons/3dbutton.png');
-    background-color: rgba(204, 51, 0, 0.6);
-    height: 112px;
-}
-div.momentary.off {
-    background-color: rgba(0,51,204,0.6);
 }
 	
 /* hover over on and off states */
@@ -726,9 +709,6 @@ div.music {
 div.music.level, div.music.vol {
     width: 99%;
 }
-div.music-controls {
-    cursor: pointer;
-}
 div.music-previous, div.music-pause, div.music-stop, div.music-play, div.music-next {
     background-image: url("Media-Player-Buttons.png");
     background-size: auto;
@@ -764,7 +744,8 @@ div.overlay.temperature, div.overlay.feelsLike {
 }
 
 /* individual temperature value inside a thermostat */
-div.thermostat.temperature, div.temperature.room {
+div.thermostat.temperature, div.overlay.temperature div.temperature.self {
+    z-index: 50;
     display: inline-block;
     width: 118px;
     background-color: #006666;
@@ -785,32 +766,27 @@ div.thermostat.temperature, div.temperature.room {
     -moz-border-radius: 50%;
 }
 
-
-div.thermostat.thermofan, div.thermostat.thermomode {
-    cursor: pointer;
-    height: auto;
-    padding: 0;
-}
+div.thermostat.thermofan, div.thermostat.thermomode,
 div.thermostat.thermomode.off, div.thermostat.thermofan.off,
 div.thermostat.thermomode.on, div.thermostat.thermofan.on,
 div.thermostat.thermostate {
 	background-color: #333333;
 	font-size: 11pt;
 	height: auto;
-        margin: 0; padding: 0;
-        color: #ffffff;
+    margin: 0; padding: 0;
+    color: #ffffff;
 }
 div.thermostat.thermomode.on, div.thermostat.thermofan.on {
-    background-color: #3333ff;
+    background-color: rgba(51, 51, 255, 0.6);
 }
 div.thermostat.thermomode.heat {
-    background-color: #ff3300;
+    background-color: rgba(255, 51, 0, 0.6);
 }
 div.thermostat.thermomode.cool {
-    background-color: #3333ff;
+    background-color: rgba(51, 51, 255, 0.6);
 }
 div.thermostat.thermomode.auto, div.thermostat.thermofan.auto {
-    background-color: #009999;
+    background-color: rgba(0, 155, 155, 0.6);
 }
 div.thermostat.thermostate {
     cursor: default;
@@ -909,20 +885,8 @@ div.music div.level-val, div.music div.vol-val {
 }
 
 /* pistons */
-div.piston-thing {
-    cursor: pointer;
-}
 div.piston.webcore {
     display: none;
-}
-div.piston.pistonName {
-    height: 112px;
-    color: rgba(102,102,102,0.01);
-    background-color: rgba(102, 102, 102, 1);
-    background-image: url('icons/piston.png');
-}
-div.piston.pistonName.firing {
-    background-image: url('icons/pistonfiring.png');
 }
 /* weather styling */
 div.thing.weather-thing, div.weather {
@@ -1065,17 +1029,19 @@ div.mode1x2, div.mode2x2 {
     height: 326px;
 }
 div.mode.themode {
-    font-size: 20pt;    margin-top: 10px;
-    cursor: pointer;
+    font-size: 20pt;
+    margin-top: 10px;
 }
 div.mode.name {
-    font-size: 12pt;    margin-top: 30px;
+    font-size: 12pt;
+    margin-top: 30px;
 }
 div.mode.zipcode {
     display:none;
 }
 div.routine.label {
-    font-size: 18pt;    margin-top: 20px;
+    font-size: 18pt;
+    margin-top: 20px;
 }
 
 /* images */
@@ -1096,47 +1062,39 @@ div.image.url {
     background-color: #000000;
     background-repeat: no-repeat;
     background-position: center;
-    
-
-}
-
-/* presence styling */
-div.presence.present {
-    background-image: url('icons/boypresent.png');
-    background-color: rgba(255, 255, 255, 0.6);
-}
-div.presence.absent {
-    background-image: url('icons/boyabsent.png');
-    background-color: rgba(255, 255, 255, 0.3);
 }
 
 /* style for modal dialog boxes - presently not used */
 .modalhide, .modalshow {
     display: none; /* Hidden by default */
     position: fixed; /* Stay in place */
-    z-index: 1; /* Sit on top */
+    z-index: 99; /* Sit on top */
     left: 0;
     top: 0;
     width: 40%; /* Full width */
     height: 60%; /* Full height */
     overflow: auto; /* Enable scroll if needed */
-    background-color: rgb(0,0,0); /* Fallback color */
     background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-    color: #ffffee;
+    color: rgba(255, 255, 255, 1);
 }
 .modalshow {
     display: block;
 }
 
+/* style color to sit on top of icon */
+div.overlay.color {
+	position: absolute; top: 32px; left: 0px;
+	z-index: 30;
+}
 div.bulb.color {
-/*    position: relative;
-    top: -140px;*/
-    background-image: url("../media/colorwheel.png");
+    /*background-image: url("../media/colorwheel.png");*/
     background-size: 32px 32px;
-    height: 32px;
-    width: 32px;
+    height: 40px;
+    width: 40px;
+    border-radius: 50%;
     font-size: 1px;
     color: rgba(128,128,128,0.01);
+    margin-top: 28px;
 }
 
 /* do not display these items */
@@ -1229,15 +1187,6 @@ div.image.url.img3 {
 div.image.url.img4 {
     background-image: url("../media/myhouse.jpg");
 }
-
-/* girl sillhouette for wife's phone */
-div.presence.jana.present {
-    background-image: url('icons/girlpresent.png');
-}
-div.presence.jana.absent {
-    background-image: url('icons/girlabsent.png');
-}
-
 /* motion detector in family room that also has temperature */
 div.motion.family.room {
     height: 80px;
@@ -1289,22 +1238,7 @@ div.thingname.frame {
 div.frame-thing div.overlay.status {
     display: none;
 }
-/* this custom setting moves power and energy up for my yard switches */
-/* note that I have to also change the size of the wrapper tile to fixed */
-/* alternatively you could change the height of just a specific switch */
-/* to a fixed height of 160 - if you do that you need the id */
-/* and do something like #t-82 where 82 is the ID of the thing you want */
-/*  div.thing.switch-thing, div.thing.switchlevel-thing {
-    height: 160px;
-}
-*/
 
-/*div.switch.yard.energy {
-    position: relative; top: -16px;
-}
-div.switch.yard.power {
-    position: relative; top: -48px;
-}*/
 div.video-thing {
     width: 369px;
     height: 240px;
@@ -1420,7 +1354,8 @@ div.thingname.lock {
     display: none;
 }
 div.lock.locked, div.lock.unlocked, div.lock.unknown {
-    height: 148px;
+    height: 110px;
+    margin-top: 30px;
 }
 div.lock-thing div.overlay.name {
     display: block;

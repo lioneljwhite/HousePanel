@@ -502,6 +502,7 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
                 }
             }
             
+            $iconstate = "";
             foreach($thingvalue as $tkey => $tval) {
                 // skip if ST signals it is watching a sensor that is failing
                 // also skip the checkInterval since we never display this
@@ -509,13 +510,13 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
                 if ( strpos($tkey, "DeviceWatch-") === FALSE &&
                      strpos($tkey, "checkInterval") === FALSE && $tkey!=="color" ) { 
                     $tc.= putElement($kindex, $i, $j, $thingtype, $tval, $tkey, $subtype, $bgcolor);
-                    
-                    // set the icon state
-                    if ( $tval && !is_numeric($tval) ) {
-                        $iconstate = $tval;
-                    }
-                    
                     $j++;									
+                }
+                    
+                // set the icon state
+                if ( $tval && !is_numeric($tval) && 
+                     in_array($tval,array("on","off","open","closed","firing","idle","active","inactive","locked","unlocked","present","absent") ) ) {
+                    $iconstate = $tval;
                 }
             }
             
@@ -573,7 +574,7 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
         // and finally if the value is complex with spaces or other characters, skip
         $tilestate = ($tkey==="track" || $thingtype=="clock" || $tkey==="color" ||
                   is_numeric($tval) || $thingtype==$tval ||
-                  $tval=="" || strpos($tval," ") || strpos($tval,"\"") ) ? "" : " " . $tval;    // || str_word_count($tval) > 1
+                  $tval=="" || strpos($tval," ") || strpos($tval,"\"") ) ? "" : " " . $tval;
         
         // fix track names for groups, empty, and super long
         if ($tkey==="track") {
@@ -599,8 +600,9 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
         }
 
         // ignore keys for single attribute items and keys that match types
-        if ( ($tkey===$thingtype ) || 
-             ($tkey==="value" && $j===0) ) {
+        if ( $tkey===$thingtype ) {
+            $tkeyshow = " self"; 
+        } else if ($tkey==="value" && $j===0 ) {
             $tkeyshow= "";
         } else {
             $tkeyshow = " ".$tkey;

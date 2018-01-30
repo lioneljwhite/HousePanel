@@ -1,4 +1,4 @@
-function getOnOff(str_type) {
+function getOnOff(str_type, skipdot) {
     var onoff = ["",""];
     
     switch (str_type) {
@@ -7,22 +7,30 @@ function getOnOff(str_type) {
         case "bulb":
         case "light":
         case "momentary":
-            onoff = [".on",".off"];
+            onoff = ["on","off"];
             break;
         case "contact":
         case "door":
         case "valve":
-            onoff = [".open",".closed"];
+            onoff = ["open","closed"];
             break;
         case "motion":
-            onoff = [".active",".inactive"];
+            onoff = ["active","inactive"];
             break;
         case "lock":
-            onoff = [".locked",".unlocked"];
+            onoff = ["locked","unlocked"];
             break;
         case "piston":
-            onoff = [".firing",".idle"];
+            onoff = ["firing","idle"];
             break;
+        case "presence":
+            onoff = ["present","absent"];
+            break;
+    }
+    
+    if ( !skipdot ) {
+        onoff[0] = "." + onoff[0];
+        onoff[1] = "." + onoff[1];
     }
     
     return onoff;
@@ -116,10 +124,10 @@ function toggleTile(target, thingindex) {
     var onoff = getOnOff(swtype);
     if ( swval==onoff[0] ) {
         obj[swtype] = onoff[1];
-        updateTile('0', obj );
+        updateTile('0', obj, swtype );
     } else if ( swval==onoff[1] ) {
         obj[swtype] = onoff[0];
-        updateTile('0', obj );
+        updateTile('0', obj, swtype );
     }
     
 

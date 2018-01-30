@@ -361,10 +361,11 @@ function fixTrack(tval) {
 // update all the subitems of any given specific tile
 // note that some sub-items can update the values of other subitems
 // this is exactly what happens in music tiles when you hit next and prev song
-function updateTile(aid, presult) {
+function updateTile(aid, presult, thetype) {
 
     // do something for each tile item returned by ajax call
     var iconid = "#a-"+aid+"-icon";
+    var onoff = getOnOff(thetype, 1);
     $.each( presult, function( key, value ) {
         var targetid = '#a-'+aid+'-'+key;
 
@@ -394,19 +395,28 @@ function updateTile(aid, presult) {
                 }
                 value = "<img src=\"media/" + iconstr + ".png\" alt=\"" + iconstr + "\" width=\"60\" height=\"60\">";
                 value += "<br />" + iconstr;
-            } else if ( oldclass && oldvalue && value &&
-                 $.isNumeric(value)===false && 
-                 $.isNumeric(oldvalue)===false &&
-                 oldclass.indexOf(oldvalue)>=0 ) 
-            {
+            } else if ( value==onoff[0] ) {
+                $(targetid).removeClass(onoff[1]);
                 $(targetid).removeClass(oldvalue);
                 $(targetid).addClass(value);
-                
-                // update the icon
+                $(iconid).removeClass(onoff[1]);
                 $(iconid).removeClass(oldvalue);
                 $(iconid).addClass(value);
+            } else if ( value==onoff[1] ) {
+                $(targetid).removeClass(onoff[0]);
+                $(targetid).removeClass(oldvalue);
+                $(targetid).addClass(value);
+                $(iconid).removeClass(onoff[0]);
+                $(iconid).removeClass(oldvalue);
+                $(iconid).addClass(value);
+//            } else if ( oldclass && oldvalue && value &&
+//                 $.isNumeric(value)===false && 
+//                 $.isNumeric(oldvalue)===false &&
+//                 oldclass.indexOf(oldvalue)>=0 ) 
+//            {
+//                $(targetid).removeClass(oldvalue);
+//                $(targetid).addClass(value);
             }
-
             // update the content 
             if (oldvalue && value) {
                 $(targetid).html(value);
@@ -423,7 +433,7 @@ function refreshTile(aid, bid, thetype) {
         function (presult, pstatus) {
             if (pstatus==="success" && presult!==undefined ) {
                 // alert( strObject(presult) );
-                updateTile(aid, presult);
+                updateTile(aid, presult, thetype);
             }
         }, "json"
     );
@@ -548,7 +558,7 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
 
     // update trigger tile first
     // alert("aid= "+aid+" bid= "+bid+" type= "+thetype+" pvalue= "+strObject(pvalue));
-    updateTile(aid, pvalue);
+    updateTile(aid, pvalue, thetype);
     
     // for music tiles, wait few seconds and refresh again to get new info
     if (thetype==="music") {
@@ -570,7 +580,7 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
     // this will include the trigger tile so we skip it
     $('div.thing[bid="'+bid+'"][type="'+thetype+'"]').each(function() {
         var otheraid = $(this).attr("id").substring(2);
-        if (otheraid !== aid) { updateTile(otheraid, pvalue); }
+        if (otheraid !== aid) { updateTile(otheraid, pvalue, thetype); }
     });
     
     // if this is a switch on/off trigger go through and set all light types
@@ -582,16 +592,16 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
     if (trigger=="switch.on" || trigger=="switch.off") {
         $('div.thing[bid="'+bid+'"][type="switch"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
-            if (otheraid !== aid) { updateTile(otheraid, pvalue); }
+            if (otheraid !== aid) { updateTile(otheraid, pvalue, thetype); }
         });
         $('div.thing[bid="'+bid+'"][type="switchlevel"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
-            if (otheraid !== aid) { updateTile(otheraid, pvalue); }
+            if (otheraid !== aid) { updateTile(otheraid, pvalue, thetype); }
         });
         $('div.thing[bid="'+bid+'"][type="bulb"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
             if (otheraid !== aid) {
-                updateTile(otheraid, pvalue);
+                updateTile(otheraid, pvalue, thetype);
                 var rbid = $(this).attr("bid");
                 setTimeout(function() {
                     refreshTile(otheraid, rbid, "bulb");
@@ -601,7 +611,7 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
         $('div.thing[bid="'+bid+'"][type="light"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
             if (otheraid !== aid) {
-                updateTile(otheraid, pvalue);
+                updateTile(otheraid, pvalue, thetype);
                 var rbid = $(this).attr("bid");
                 setTimeout(function() {
                     refreshTile(otheraid, rbid, "light");
@@ -633,11 +643,11 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
         trigger==="colorTemperature-up" || trigger==="colorTemperature-dn" ) {
         $('div.thing[bid="'+bid+'"][type="switch"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
-            updateTile(otheraid, pvalue);
+            updateTile(otheraid, pvalue, "switch");
         });
         $('div.thing[bid="'+bid+'"][type="switchlevel"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
-            updateTile(otheraid, pvalue);
+            updateTile(otheraid, pvalue,"switchlevel");
             var rbid = $(this).attr("bid");
             setTimeout(function() {
                 refreshTile(otheraid, rbid, "switchlevel");
@@ -645,7 +655,7 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
         });
         $('div.thing[bid="'+bid+'"][type="bulb"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
-            updateTile(otheraid, pvalue);
+            updateTile(otheraid, pvalue,"bulb");
             var rbid = $(this).attr("bid");
             setTimeout(function() {
                 refreshTile(otheraid, rbid, "bulb");
@@ -653,7 +663,7 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
         });
         $('div.thing[bid="'+bid+'"][type="light"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
-            updateTile(otheraid, pvalue);
+            updateTile(otheraid, pvalue,"light");
             var rbid = $(this).attr("bid");
             setTimeout(function() {
                 refreshTile(otheraid, rbid, "light");
@@ -688,7 +698,7 @@ function setupPage(trigger) {
         var iconid = '#a-'+aid+'-icon';
         
         // alert('aid= ' + aid +' bid= ' + bid + ' targetid= '+targetid+ ' subid= ' + subid + ' type= ' + thetype + ' class= ['+theclass+'] value= '+thevalue);
-        var onoff = getOnOff(thetype);
+        var onoff = getOnOff(thetype, 1);
         if ( oldvalue==onoff[0]) { thevalue= onoff[1]; }
         else { thevalue= onoff[0]; }
 
@@ -709,7 +719,7 @@ function setupPage(trigger) {
                 {useajax: "doaction", id: bid, type: thetype, value: thevalue, attr: theclass},
                 function(presult, pstatus) {
                     if (pstatus==="success" && presult!==undefined && presult!==false) {
-                        updateTile(aid, presult);
+                        updateTile(aid, presult, thetype);
                         setTimeout(function(){classarray.myMethod();}, 1500);
                     }
                 });

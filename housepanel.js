@@ -372,7 +372,6 @@ function updateTile(aid, presult, thetype) {
         // only take action if this key is found in this tile
         if ($(targetid) && value) {
             var oldvalue = $(targetid).html();
-            var oldclass = $(targetid).attr("class");
             // alert(" aid="+aid+" key="+key+" targetid="+targetid+" value="+value+" oldvalue="+oldvalue+" oldclass= "+oldclass);
 
             // remove the old class type and replace it if they are both
@@ -395,27 +394,26 @@ function updateTile(aid, presult, thetype) {
                 }
                 value = "<img src=\"media/" + iconstr + ".png\" alt=\"" + iconstr + "\" width=\"60\" height=\"60\">";
                 value += "<br />" + iconstr;
-            } else if ( value==onoff[0] ) {
+            } else if ( value===onoff[0] ) {
                 $(targetid).removeClass(onoff[1]);
                 $(targetid).removeClass(oldvalue);
                 $(targetid).addClass(value);
-                $(iconid).removeClass(onoff[1]);
-                $(iconid).removeClass(oldvalue);
-                $(iconid).addClass(value);
-            } else if ( value==onoff[1] ) {
+                if ( targetid != iconid ) {
+                    $(iconid).removeClass(onoff[1]);
+                    $(iconid).removeClass(oldvalue);
+                    $(iconid).addClass(value);
+                    $(iconid).html(value);
+                }
+            } else if ( value===onoff[1] ) {
                 $(targetid).removeClass(onoff[0]);
                 $(targetid).removeClass(oldvalue);
                 $(targetid).addClass(value);
-                $(iconid).removeClass(onoff[0]);
-                $(iconid).removeClass(oldvalue);
-                $(iconid).addClass(value);
-//            } else if ( oldclass && oldvalue && value &&
-//                 $.isNumeric(value)===false && 
-//                 $.isNumeric(oldvalue)===false &&
-//                 oldclass.indexOf(oldvalue)>=0 ) 
-//            {
-//                $(targetid).removeClass(oldvalue);
-//                $(targetid).addClass(value);
+                if ( targetid != iconid ) {
+                    $(iconid).removeClass(onoff[0]);
+                    $(iconid).removeClass(oldvalue);
+                    $(iconid).addClass(value);
+                    $(iconid).html(value);
+                }
             }
             // update the content 
             if (oldvalue && value) {
@@ -692,12 +690,18 @@ function setupPage(trigger) {
         var bid = $(tile).attr("bid");
         var thetype = $(tile).attr("type");
 
+        // if clicked on icon, swap target to the type
+        if (subid==="icon") {
+            subid= thetype;
+        }
+        
         // get target id and contents
         var targetid = '#a-'+aid+'-'+subid;
         var thevalue, oldvalue = $(targetid).html();
         var iconid = '#a-'+aid+'-icon';
         
-        // alert('aid= ' + aid +' bid= ' + bid + ' targetid= '+targetid+ ' subid= ' + subid + ' type= ' + thetype + ' class= ['+theclass+'] value= '+thevalue);
+        alert('aid= ' + aid +' bid= ' + bid + ' targetid= '+targetid+ ' subid= ' + subid + ' type= ' + thetype + ' class= ['+theclass+'] value= '+oldvalue);
+
         var onoff = getOnOff(thetype, 1);
         if ( oldvalue==onoff[0]) { thevalue= onoff[1]; }
         else { thevalue= onoff[0]; }
@@ -714,6 +718,7 @@ function setupPage(trigger) {
                 this[0].attr("class", this[1]);
                 this[0].html(this[2]);
                 this[3].attr("class", this[4]);
+                this[3].html(this[2]);
             };
             $.post("housepanel.php", 
                 {useajax: "doaction", id: bid, type: thetype, value: thevalue, attr: theclass},

@@ -150,21 +150,27 @@ function htmlHeader($skindir="skin-housepanel") {
         // note - we dont need bulb, light, or switchlevel because they all have a switch subtype
         $tc.= '<script type="text/javascript">';
         $clicktypes = array("switch.on","switch.off",
-                            "lock","door","momentary",
+                            "mode.themode","routine.label",
+                            "lock.locked","lock.unlocked",
+                            "door.open","door.closed",
+                            "momentary.on","momentary.off",
+                            "piston.pistonName",
+                            "valve.open","valve.closed",
                             "heat-dn","heat-up",
-                            "cool-dn","cool-up","thermomode","thermofan",
+                            "cool-dn","cool-up",
+                            "thermostat.thermomode","thermostat.thermofan",
                             "musicmute","musicstatus", 
                             "music-previous","music-pause","music-play","music-stop","music-next",
-                            "level-dn","level-up", "level-val","mode.themode",
+                            "level-dn","level-up","level-val",
                             "vol-up","vol-dn",
-                            "piston.pistonName","valve","routine",
-                            "hue-up","hue-dn","hue-val","saturation-up","saturation-dn","saturation-val",
+                            "hue-up","hue-dn","hue-val",
+                            "saturation-up","saturation-dn","saturation-val",
                             "colorTemperature-up","colorTemperature-dn","colorTemperature-val");
-        $tc.= '$(document).ready(function(){';
+     $tc.= '$(document).ready(function(){';
         foreach ($clicktypes as $thing) {
             $tc.= '  setupPage("' . $thing . '");';
         }
-        $tc.= "});";
+    $tc.= "});";
 
 		
 		
@@ -405,7 +411,6 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
         $tc.= "<div aid=\"$i\"  title=\"$thingtype\" class=\"thingname $thingtype t_$kindex\" id=\"s-$i\"><span class=\"n_$kindex\">" . $weathername . "</span></div>";
         $tc.= putElement($kindex, $i, 0, $thingtype, $thingvalue["temperature"], "temperature");
         $tc.= putElement($kindex, $i, 1, $thingtype, $thingvalue["feelsLike"], "feelsLike");
-        // $tc.= putElement($kindex, $i, 2, $thingtype, $thingvalue["city"], "city");
         $tc.= "<br /><div aid=\"$i\" type=\"$thingtype\"  subid=\"weatherIcon\" title=\"" . $thingvalue["weatherIcon"] . "\" class=\"$thingtype" . " weatherIcon" . "\" id=\"a-$i"."-weatherIcon\">";
         $iconstr = $thingvalue["weatherIcon"];
         if (substr($iconstr,0,3) === "nt_") {
@@ -497,30 +502,28 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
                 $cval = $thingvalue["color"];
                 if ( preg_match("/^#[abcdefABCDEF\d]{6}/",$cval) ) {
                     $bgcolor = " style=\"background-color:$cval;\"";
-                    $tc.= putElement($kindex, $i, $j, $thingtype, $cval, "color", $subtype, $bgcolor);
-                    $j++;
+//                    $tc.= putElement($kindex, $i, $j, $thingtype, $cval, "color", $subtype, $bgcolor);
+//                    $j++;
                 }
             }
-            
-            $iconstate = "";
+
+            // get the state to use in the icon element
             foreach($thingvalue as $tkey => $tval) {
-                // skip if ST signals it is watching a sensor that is failing
-                // also skip the checkInterval since we never display this
-                // and skip color because we put that out above first
-                if ( strpos($tkey, "DeviceWatch-") === FALSE &&
-                     strpos($tkey, "checkInterval") === FALSE && $tkey!=="color" ) { 
-                    $tc.= putElement($kindex, $i, $j, $thingtype, $tval, $tkey, $subtype, $bgcolor);
-                    $j++;									
-                }
-                    
-                // set the icon state
-                if ( $tval && !is_numeric($tval) && 
+                if ( $iconstate==="" && $tval && 
                      in_array($tval,array("on","off","open","closed","firing","idle","active","inactive","locked","unlocked","present","absent") ) ) {
                     $iconstate = $tval;
+                }
+                // skip if ST signals it is watching a sensor that is failing
+                // also skip the checkInterval since we never display this
+                if ( strpos($tkey, "DeviceWatch-") === FALSE &&
+                     strpos($tkey, "checkInterval") === FALSE ) { 
+                    $tc.= putElement($kindex, $i, $j, $thingtype, $tval, $tkey, $subtype, $bgcolor);
+                    $j++;									
                 }
             }
             
         // the single line below is a legacy holdover that should now never be used
+        // because all items returned from groovy code should be in an array
         } else {
             $tc.= putElement($kindex, $i, 0, $thingtype, $thingvalue, "value", $subtype);
             $j = 1;
@@ -528,9 +531,6 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
     }
 
     // write an icon element for every tile - this is a new approach to handling icons
-    // the js file adds state to this element when clicking happens and then
-    // styling will cause the visual to change based on what is in the CSS file
-    // this makes all tiles handle icons on the same element
     $tc.= putElement($kindex, $i, $j, $thingtype, $iconstate, "icon", $subtype);
 
     $tc.= "</div>";
@@ -550,7 +550,7 @@ function fixTrack($tval) {
     return $tval;
 }
 
-function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype="", $bgcolor="") {
+function putElement($kindex, $i, $j, $thingtype, $tval, $tkey, $subtype="", $bgcolor="") {
     $tc = "";
     // add a name specific tag to the wrapper class
     // and include support for hue bulbs - fix a few bugs too
@@ -583,8 +583,6 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
             $powmod = intval($tval);
             $powmod = (string)($powmod - ($powmod % 10));
             $tval = "<div style=\"width: " . $tval . "%\" class=\"ovbLevel L" . $powmod . "\"></div>";
-        } else if ( $tkey == "icon") {
-            $tval = "";
         }
         
         // for music status show a play bar in front of it
@@ -602,14 +600,14 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
         // ignore keys for single attribute items and keys that match types
         if ( $tkey===$thingtype ) {
             $tkeyshow = " self"; 
-        } else if ($tkey==="value" && $j===0 ) {
+        } else if ($tkey==="value" ) {
             $tkeyshow= "";
         } else {
             $tkeyshow = " ".$tkey;
         }
         // include class for main thing type, the subtype, a sub-key, and a state
         // make background the color based on value
-        if ( $bgcolor && $tkey=="color" ) {
+        if ( $tkey=="color" ) {
             $colorval = $bgcolor;
         } else {
             $colorval = "";

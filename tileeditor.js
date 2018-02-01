@@ -106,8 +106,8 @@ function toggleTile(target, thingindex) {
 //    alert("type= "+swtype+" value= "+swval);
 
     // special handling for pistons
-    if ( swtype=="pistonName") {
-        if ( swval == "Piston Firing..." || swval == "firing") {
+    if ( swtype==="pistonName") {
+        if ( swval === "Piston Firing..." || swval === "firing") {
             $(target).html("idle");
             $(target).removeClass("firing");
             $(target).addClass("idle");
@@ -120,12 +120,12 @@ function toggleTile(target, thingindex) {
         return;
     }
 
-    var obj = new Object()
+    var obj = new Object();
     var onoff = getOnOff(swtype);
-    if ( swval==onoff[0] ) {
+    if ( swval===onoff[0] ) {
         obj[swtype] = onoff[1];
         updateTile('0', obj, swtype );
-    } else if ( swval==onoff[1] ) {
+    } else if ( swval===onoff[1] ) {
         obj[swtype] = onoff[0];
         updateTile('0', obj, swtype );
     }
@@ -515,11 +515,11 @@ function editTile(str_type, thingindex) {
 }; //End EditTile
 
 function tileCopy(thingindex) {
-	alert("Not Yet Implemented - Copied: " + thingindex)
+	alert("Not Yet Implemented - Copied: " + thingindex);
 };
 
 function tilePaste(thingindex) {
-	alert("Not Yet Implemented - Pasted To: " + thingindex)
+	alert("Not Yet Implemented - Pasted To: " + thingindex);
 };
 
 function invertHex(hexnum){

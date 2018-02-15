@@ -176,6 +176,12 @@ div.panel-thermostats, div.panel-thermostat {
 
 }
 
+}
+div.panel-salon, div.panel-salon {
+    background-image: url('dining.jpg');
+
+}
+
 /* style the panel with all things listed */
 div.panel-all {
     background-image: none;

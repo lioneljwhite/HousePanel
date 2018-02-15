@@ -482,9 +482,11 @@ div.door.closed, div.contact.door.closed {
     cursor: pointer;
 }
 /* hide the contact part of garage doors that include an embedded contact sensor */
+/* remove this code for 318 personalization
 div.door-thing div.overlay.contact, div.garage.door.contact {
     display: none;
-}
+} */
+
 div.contact.window.open {
     background-image: url('icons/openwindow.png');
 }

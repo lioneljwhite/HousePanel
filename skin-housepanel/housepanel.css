@@ -177,8 +177,8 @@ div.panel-thermostats, div.panel-thermostat {
 }
 
 }
-div.panel-salon, div.panel-salon {
-    background-image: url('dining.jpg');
+div.panel-salon, div.panel-Salon, div.panel-main {
+    background-image: url('salon.jpg');
 
 }
 

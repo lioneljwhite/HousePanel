@@ -143,7 +143,7 @@ div.panel {
     background-size: cover;
 }
 
-div.panel-family, div.panel-familyroom {
+div.panel-family, div.panel-familyroom, div.panel-salon {
     background-image: url('family.jpg');
 
 }
@@ -176,11 +176,6 @@ div.panel-thermostats, div.panel-thermostat {
 
 }
 
-}
-div.panel-salon, div.panel-Salon, div.panel-main {
-    background-image: url('salon.jpg');
-
-}
 
 /* style the panel with all things listed */
 div.panel-all {

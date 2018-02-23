@@ -19,6 +19,7 @@
  * 
  *
  * Revision History
+ * 1.49       sliderhue branch to implement slider and draft color picker
  * 1.48       Integrate @nitwitgit (Nick) TileEdit V3.2
  * 1.47       Integrate Nick's color picker and custom dialog
  * 1.46       Free form drag and drop of tiles
@@ -114,30 +115,45 @@ function htmlHeader($skindir="skin-housepanel") {
     $tc.= '<link rel="shortcut icon" href="media/favicon.ico">';
     
     // load jQuery and themes
-	
     $tc.= '<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">';
     $tc.= '<script src="https://code.jquery.com/jquery-1.12.4.js"></script>';
     $tc.= '<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>';
-	$tc.= '<script src="http://malsup.github.com/jquery.form.js"></script>';
+    $tc.= '<script src="http://malsup.github.com/jquery.form.js"></script>';
 
+    // TODO - switch to the jquery mobile framework
+    /*
+    $tc.= '<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />';
+    $tc.= '<script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>';
+    $tc.= '<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>';
+     * 
+     */
+    
     // load quicktime script for video
     $tc.= '<script src="ac_quicktime.js"></script>';
 
     // include hack from touchpunch.furf.com to enable touch punch through for tablets
-    // $tc.= '<script src="jquery.ui.touch-punch.min.js"></script>';
+    $tc.= '<script src="jquery.ui.touch-punch.min.js"></script>';
+    
+    // minicolors library
+    $tc.= "<script src=\"jquery.minicolors.min.js\"></script>";
+    $tc.= "<link rel=\"stylesheet\" href=\"jquery.minicolors.css\">";
     
     // load custom .css and the main script file
     if (!$skindir) {
         $skindir = "skin-housepanel";
     }
     $tc.= "<link rel=\"stylesheet\" type=\"text/css\" href=\"$skindir/housepanel.css\">";
+    
+    if ( file_exists( $skindir . "/housepanel-theme.js") ) {
+        $tc.= "<script type=\"text/javascript\" src=\"$skindir/housepanel-theme.js\"></script>";
+    }
 	
 	//load cutomization helpers
     $tc.= "<script type=\"text/javascript\" src=\"farbtastic.js\"></script>";
     $tc.= "<link rel=\"stylesheet\" type=\"text/css\" href=\"farbtastic.css\"/>";
     $tc.= "<script type=\"text/javascript\" src=\"tileeditor.js\"></script>";
     $tc.= "<link id=\"tileeditor\" rel=\"stylesheet\" type=\"text/css\" href=\"tileeditor.css\"/>";	
-    
+
     // load the custom tile sheet if it exists
     // note - if it doesn't exist, we will create it and for future page reloads
     if (file_exists("$skindir/customtiles.css")) {
@@ -163,10 +179,6 @@ function htmlHeader($skindir="skin-housepanel") {
             $tc.= '  setupPage("' . $thing . '");';
         }
         $tc.= "});";
-
-		
-		
-		
     $tc.= '</script>';
 
     // begin creating the main page
@@ -410,25 +422,18 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
         $tc.= "<div aid=\"$i\"  title=\"$thingtype\" class=\"thingname $thingtype t_$kindex\" id=\"s-$i\"><span class=\"n_$kindex\">" . $weathername . "</span></div>";
         $tc.= putElement($kindex, $i, 0, $thingtype, $thingvalue["temperature"], "temperature");
         $tc.= putElement($kindex, $i, 1, $thingtype, $thingvalue["feelsLike"], "feelsLike");
-        // $tc.= putElement($kindex, $i, 2, $thingtype, $thingvalue["city"], "city");
-        $tc.= "<br /><div aid=\"$i\" type=\"$thingtype\"  subid=\"weatherIcon\" title=\"" . $thingvalue["weatherIcon"] . "\" class=\"$thingtype" . " weatherIcon" . "\" id=\"a-$i"."-weatherIcon\">";
-        $iconstr = $thingvalue["weatherIcon"];
-        if (substr($iconstr,0,3) === "nt_") {
-            $iconstr = substr($iconstr,3);
+        $wiconstr = $thingvalue["weatherIcon"];
+        if (substr($wiconstr,0,3) === "nt_") {
+            $wiconstr = substr($wiconstr,3);
         }
-        $tc.= '<img src="media/' . $iconstr . '.png" alt="' . $thingvalue["weatherIcon"] . '" width="60" height="60">';
-        $tc.= '<br />' . $iconstr;
-        $tc.= "</div>";
-        $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"forecastIcon\" title=\"" . $thingvalue["forecastIcon"] ."\" class=\"$thingtype" . " forecastIcon" . "\" id=\"a-$i"."-forecastIcon\">";
-        $iconstr = $thingvalue["forecastIcon"];
-        if (substr($iconstr,0,3) === "nt_") {
-            $iconstr = substr($iconstr,3);
+        $ficonstr = $thingvalue["forecastIcon"];
+        if (substr($ficonstr,0,3) === "nt_") {
+            $ficonstr = substr($ficonstr,3);
         }
-        $tc.= '<img src="media/' . $iconstr . '.png" alt="' . $thingvalue["forecastIcon"] . '" width="60" height="60">';
-        $tc.= '<br />' . $iconstr;
-        $tc.= "</div>";
-        $tc.= putElement($kindex, $i, 2, $thingtype, "Sunrise: " . $thingvalue["localSunrise"] . " Sunset: " . $thingvalue["localSunset"], "sunriseset");
-        $j = 3;
+        $tc.= putElement($kindex, $i, 2, $thingtype, $wiconstr, "weatherIcon");
+        $tc.= putElement($kindex, $i, 3, $thingtype, $ficonstr, "forecastIcon");
+        $tc.= putElement($kindex, $i, 4, $thingtype, "Sunrise: " . $thingvalue["localSunrise"] . " Sunset: " . $thingvalue["localSunset"], "sunriseset");
+        $j = 5;
         foreach($thingvalue as $tkey => $tval) {
             if ($tkey!=="temperature" &&
                 $tkey!=="feelsLike" &&
@@ -444,16 +449,14 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
                 $j++;
             }
         }
+        
     // temporary crude video tag hack - must replace the small.mp4 or small.ogv
     // with the video stream from your camera source or a video of your choice
     } else if ( $thingtype === "video") {
-        
-    // add video hack for quicktime support
         $vidname = $thingvalue["name"];
         $tkey = "url";
         $vidname = $thingvalue["url"];
         $tc.= "<div aid=\"$i\"  title=\"$thingtype status\" class=\"thingname $thingtype t_$kindex\" id=\"s-$i\"><span class=\"n_$kindex\">" . $thingpr . "</span></div>";
-        // wrap the video tag in our standard HP div pattern
         $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" title=\"$vidname\" class=\"video url\" id=\"a-$i"."-$tkey\">";
         
         $tc.= '<video width="369" height="240" autoplay >';
@@ -502,7 +505,7 @@ function makeThing($i, $kindex, $thesensor, $panelname, $postop=0, $posleft=0) {
                 $cval = $thingvalue["color"];
                 if ( preg_match("/^#[abcdefABCDEF\d]{6}/",$cval) ) {
                     $bgcolor = " style=\"background-color:$cval;\"";
-                    $tc.= putElement($kindex, $i, $j, $thingtype, $cval, "color", $subtype);
+                    $tc.= putElement($kindex, $i, $j, $thingtype, $cval, "color", $subtype, $bgcolor);
                     $j++;
                 }
             }
@@ -554,7 +557,7 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
     $tc = "";
     // add a name specific tag to the wrapper class
     // and include support for hue bulbs - fix a few bugs too
-    if ( in_array($tkey, array("heat", "cool", "level", "vol", "hue", "saturation", "colorTemperature") )) {
+    if ( in_array($tkey, array("heat", "cool", "vol", "hue", "saturation", "colorTemperature") )) {
 //    if ($tkey=="heat" || $tkey=="cool" || $tkey=="level" || $tkey=="vol" ||
 //        $tkey=="hue" || $tkey=="saturation" || $tkey=="colorTemperature") {
         $tkeyval = $tkey . "-val";
@@ -612,7 +615,11 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
             $colorval = "";
         }
         $tc.= "<div class=\"overlay $tkey v_$kindex\">";
-        $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" title=\"$tkey\"$colorval class=\"" . $thingtype . $subtype . $tkeyshow . " p_$kindex" . $extra . "\" id=\"a-$i-$tkey" . "\">" . $tval . "</div>";
+        if ( $tkey == "level" ) {
+            $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" value=\"$tval\" title=\"$tkey\" class=\"" . $thingtype . $tkeyshow . " p_$kindex" . "\" id=\"a-$i-$tkey" . "\">" . "</div>";
+        } else {
+            $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" title=\"$tkey\"$colorval class=\"" . $thingtype . $subtype . $tkeyshow . " p_$kindex" . $extra . "\" id=\"a-$i-$tkey" . "\">" . $tval . "</div>";
+        }
         $tc.= "</div>";
     }
     return $tc;
@@ -779,7 +786,7 @@ function setOrder($endpt, $access_token, $swid, $swtype, $swval, $swattr, $siten
 //                $options["things"][$swattr] = $swval;
                 $options["things"][$swattr] = array();
                 foreach( $swval as $val) {
-                    $options["things"][$swattr][] = intval($val, 10);
+                    $options["things"][$swattr][] = array(intval($val, 10),0,0);
                 }
 //              $updated = print_r($swval,true);
                 $updated = true;
@@ -1953,6 +1960,12 @@ function is_ssl() {
             $tc.= "<input class=\"submitbutton\" value=\"Refresh\" name=\"submitrefresh\" type=\"submit\" />";
             $tc.= "</form>";
             $tc.='<div id="restoretabs" class="restoretabs">Hide Tabs</div>';
+
+            $tc.= "<div class=\"modeoptions\" id=\"modeoptions\">
+              <input class=\"radioopts\" type=\"radio\" name=\"usemode\" value=\"Operate\" checked><span class=\"radioopts\">Operate</span>
+              <input class=\"radioopts\" type=\"radio\" name=\"usemode\" value=\"Reorder\" ><span class=\"radioopts\">Reorder</span>
+              <input class=\"radioopts\" type=\"radio\" name=\"usemode\" value=\"DragDrop\" ><span class=\"radioopts\">Drag</div>
+            </div><div id=\"opmode\"></div>";
         }
         $tc.='</div>';
    

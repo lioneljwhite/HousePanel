@@ -18,6 +18,7 @@
  * 
  * Revision history:
  * 02/25/2018 - Update to support sliders and color hue picker
+ * 02/04/2018 - Port over to Hubitat
  * 01/04/2018 - Fix bulb bug that returned wrong name in the type
  * 12/29/2017 - Changed bulb to colorControl capability for Hue light support
  *              Added support for colorTemperature in switches and lights
@@ -40,6 +41,13 @@ definition(
 
 
 preferences {
+    section("Hubitat Configuration") {
+        input (name: "useSmartthings", type: "bool", title: "use ST?", defaultValue: true, required: true)
+        input (name: "useHubitat", type: "bool", title: "use Hubitat?", defaultValue: false, required: true)
+        paragraph "The Local IP is the IP address where your HousePanel application is installed\n" +
+                  "This must be on the same network subnet as the Hubitat HUB if you are using Hubitat"
+        input (name: "localip", type: "text", title: "Local IP", defaultValue: "", required: true, multiple: false )
+    }
     section("Lights and Switches...") {
         input "myswitches", "capability.switch", multiple: true, required: false, title: "Switches"
         input "mydimmers", "capability.switchLevel", hideWhenEmpty: true, multiple: true, required: false, title: "Dimmers"
@@ -48,8 +56,8 @@ preferences {
         input "mybulbs", "capability.colorControl", hideWhenEmpty: true, multiple: true, required: false, title: "Bulbs"
     }
     section ("Motion and Presence") {
-    	input "mysensors", "capability.motionSensor", multiple: true, required: false, title: "Motion"
     	input "mypresences", "capability.presenceSensor", hideWhenEmpty: true, multiple: true, required: false, title: "Presence"
+    	input "mysensors", "capability.motionSensor", multiple: true, required: false, title: "Motion"
     }
     section ("Door and Contact Sensors") {
     	input "mycontacts", "capability.contactSensor", hideWhenEmpty: true, multiple: true, required: false, title: "Contact Sensors"
@@ -154,10 +162,6 @@ mappings {
   path("/doquery") {
      action: [       POST: "doQuery"     ]
   }
-  
-  path("/getallthings") {
-     action: [       POST: "getAllThings"     ]
-  }
 
 }
 
@@ -171,19 +175,19 @@ def updated() {
 }
 
 def initialize() {
-    log.debug "Installed with settings: ${settings}"
-    webCoRE_init()
+    configureHub();
+    log.debug "Installed with settings: ${settings} "
 }
 
-def getWeatherInfo(evt) {
-    def name = evt.getName()
-    def src = evt.getSource()
-    def val = evt.getValue()
-    log.debug "Weather event: from ${src} name = ${name} value = ${val}"
+def configureHub() {
+    if ( ! state.accessToken ) {
+    	createAccessToken(); 
+	    log.debug "Creating new accessToken ... you must save app.id and accessToken in your HousePanel configuration file."
+    }
+    log.debug "app.id = ${app.id} and accessToken = ${state.accessToken} local IP= ${localip}"
+    
 }
 
-// changed switch to only return switch so we can use it with other things
-// to get multiple attributes from a switch, use other
 def getSwitch(swid, item=null) {
 //    getThing(myswitches, swid, item)
     item = item? item : myswitches.find {it.id == swid }
@@ -333,14 +337,6 @@ def getRoutine(swid, item=null) {
     return resp
 }
 
-// change pistonName to name to be consistent
-// but retain original for backward compatibility reasons
-def getPiston(swid, item=null) {
-    item = item ? item : webCoRE_list().find {it.id == swid}
-    def resp = [name: item.name, pistonName: "idle"]
-    return resp
-}
-
 // a generic device getter to streamline code
 def getDevice(mydevices, swid, item=null) {
     def resp = false
@@ -366,18 +362,19 @@ def getThing(things, swid, item=null) {
     if ( item ) {
         resp.put("name",item.displayName)
     }
-            item?.capabilities.each {cap ->
-                // def capname = cap.getName()
-                cap.attributes?.each {attr ->
-                    try {
-                        def othername = attr.getName()
-                        def othervalue = item.currentValue(othername)
-                        resp.put(othername,othervalue)
-                    } catch (ex) {
-                        log.warn "Attempt to read attribute for ${swid} failed"
-                    } 
-                }
+
+    item?.capabilities.each {cap ->
+            // def capname = cap.getName()
+        cap.attributes?.each {attr ->
+            try {
+                def othername = attr.getName()
+                def othervalue = item.currentValue(othername)
+                resp.put(othername,othervalue)
+            } catch (ex) {
+                log.warn "Attempt to read attribute for ${swid} failed"
             }
+        }
+    }
     return resp
 }
 
@@ -392,44 +389,6 @@ def getThings(things, thingtype) {
         def val = getThing(things, it.id, it)
         resp << [name: it.displayName, id: it.id, value: val, type: thingtype]
     }
-    return resp
-}
-
-// This retrieves and returns all things
-// we use this up front and again to resync with the mobile app
-def getAllThings() {
-    def incpistons = params.incpistons
-
-    def resp = []
-    resp.addAll(getModes())
-    resp.addAll(getSwitches())
-    resp.addAll(getDimmers())
-    resp.addAll(getMomentaries())
-    resp.addAll(getLights())
-    resp.addAll(getBulbs())
-    resp.addAll(getContacts())
-    resp.addAll(getDoors())
-    resp.addAll(getLocks())
-    resp.addAll(getSensors())
-    resp.addAll(getPresences())
-    resp.addAll(getThermostats())
-    resp.addAll(getTemperatures())
-    resp.addAll(getIlluminances())
-    resp.addAll(getWeathers())
-    resp.addAll(getValves())
-    resp.addAll(getWaters())
-    resp.addAll(getMusics())
-    resp.addAll(getSmokes())
-    resp.addAll(getRoutines())
-    resp.addAll(getOthers())
-    resp.addAll(getBlanks())
-    resp.addAll(getImages())
-
-    // optionally include pistons based on user option
-    if (incpistons) {
-        resp.pulAll(getPistons())
-    }
-
     return resp
 }
 
@@ -478,18 +437,6 @@ def getImages() {
     return resp
 }
 
-def getPistons() {
-    def resp = []
-    def plist = webCoRE_list()
-    log.debug "Number of pistons = " + plist?.size() ?: 0
-    plist?.each {
-        def val = getPiston(it.id, it)
-        resp << [name: it.name, id: it.id, value: val, type: "piston"]
-        // log.debug "webCoRE piston retrieved: name = ${it.name} with id = ${it.id} and ${it}"
-    }
-    return resp
-}
-
 def getSwitches() {
 //    getThings(myswitches, "switch")
     def resp = []
@@ -497,7 +444,7 @@ def getSwitches() {
     myswitches?.each {
         def multivalue = getSwitch(it.id, it)
         resp << [name: it.displayName, id: it.id, value: multivalue, type: "switch" ]
-    }
+}
     return resp
 }
 
@@ -749,13 +696,6 @@ def doAction() {
       case "door" :
       	 cmdresult = setDoor(swid, cmd, swattr)
          break
-
-      case "piston" :
-         webCoRE_execute(swid)
-         // set the result to piston information (could be false)
-         cmdresult = getPiston(swid)
-         // log.debug "Executed webCoRE piston: $cmdresult"
-         break;
       
       case "routine" :
         cmdresult = setRoutine(swid, cmd, swattr)
@@ -977,6 +917,7 @@ def setGenericLight(mythings, swid, cmd, swattr) {
     def saturation = false
     def temperature = false
     def newcolor = false
+    def skiponoff = false
     
     if (item ) {
     
@@ -1011,6 +952,7 @@ def setGenericLight(mythings, swid, cmd, swattr) {
             def s = item.currentValue("saturation").toInteger()
             newcolor = hsv2rgb(h, s, newsw)
             newonoff = "on"
+            skiponoff = true
             break
               
         case "level-dn":
@@ -1023,8 +965,9 @@ def setGenericLight(mythings, swid, cmd, swattr) {
             def s = item.currentValue("saturation").toInteger()
             newcolor = hsv2rgb(h, s, newsw)
             newonoff = "on"
+            skiponoff = true
             break
-         
+                
         case "level":
             if ( cmd.isNumber() ) {
                 newsw = cmd.toInteger()
@@ -1033,6 +976,7 @@ def setGenericLight(mythings, swid, cmd, swattr) {
                 def h = item.currentValue("hue").toInteger()
                 def s = item.currentValue("saturation").toInteger()
                 newcolor = hsv2rgb(h, s, newsw)
+                skiponoff = true
             }
             newonoff = (newsw == 0) ? "off" : "on"
             break
@@ -1044,7 +988,8 @@ def setGenericLight(mythings, swid, cmd, swattr) {
                 def s = item.currentValue("saturation").toInteger()
                 def v = item.currentValue("level").toInteger()
                 newcolor = hsv2rgb(hue, s, v)
-                newonoff = "on"
+            	newonoff = "on"
+                skiponoff = true
             break
               
         case "hue-dn":
@@ -1055,7 +1000,8 @@ def setGenericLight(mythings, swid, cmd, swattr) {
                 def s = item.currentValue("saturation").toInteger()
                 def v = item.currentValue("level").toInteger()
                 newcolor = hsv2rgb(hue, s, v)
-                newonoff = "on"
+            	newonoff = "on"
+                skiponoff = true
             break
               
         case "saturation-up":
@@ -1065,7 +1011,8 @@ def setGenericLight(mythings, swid, cmd, swattr) {
                 def h = item.currentValue("hue").toInteger()
                 def v = item.currentValue("level").toInteger()
                 newcolor = hsv2rgb(h, saturation, v)
-                newonoff = "on"
+            	newonoff = "on"
+                skiponoff = true
             break
               
         case "saturation-dn":
@@ -1076,14 +1023,16 @@ def setGenericLight(mythings, swid, cmd, swattr) {
                 def h = item.currentValue("hue").toInteger()
                 def v = item.currentValue("level").toInteger()
                 newcolor = hsv2rgb(h, saturation, v)
-                newonoff = "on"
+            	newonoff = "on"
+                skiponoff = true
             break
               
         case "colorTemperature-up":
                 temperature = item.currentValue("colorTemperature").toInteger()
                 temperature = (temperature >= 6500) ? 6500 : temperature - (temperature % 100) + 100
                 item.setColorTemperature(temperature)
-                newonoff = "on"
+            	newonoff = "on"
+                skiponoff = true
             break
               
         case "colorTemperature-dn":
@@ -1093,7 +1042,8 @@ def setGenericLight(mythings, swid, cmd, swattr) {
                 temperature = (temperature <= 2700) ? 2700 : temperature - del
                 temperature = (temperature >= 6500) ? 6500 : temperature - (temperature % 100)
                 item.setColorTemperature(temperature)
-                newonoff = "on"
+            	newonoff = "on"
+                skiponoff = true
             break
               
         case "colorTemperature":
@@ -1104,6 +1054,7 @@ def setGenericLight(mythings, swid, cmd, swattr) {
                     item.setColorTemperature(temperature)
                 }
                 newonoff = "on"
+                skiponoff = true
             break
               
         case "level-val":
@@ -1111,19 +1062,16 @@ def setGenericLight(mythings, swid, cmd, swattr) {
         case "saturation-val":
         case "colorTemperature-val":
             newonoff = newonoff=="off" ? "on" : "off"
-            // newonoff=="on" ? item.on() : item.off()
             break
               
         case "on":
             newonoff = "off"
-            // item.off()
             break
               
         case "off":
             newonoff = "on"
-            // item.on()
             break
-            
+              
         case "color":
             if (cmd.startsWith("hsl(") && cmd.length()==16) {  // hsl(123,123,123)
                 hue = cmd.substring(4,7).toInteger()
@@ -1136,6 +1084,7 @@ def setGenericLight(mythings, swid, cmd, swattr) {
                 newcolor = hsv2rgb(hue, saturation, newsw)
 //                log.debug "New color = $newcolor"
                 newonoff = "on"
+                skiponoff = true
             }
             break
               
@@ -1145,16 +1094,19 @@ def setGenericLight(mythings, swid, cmd, swattr) {
             } else {
                 newonoff = newonoff=="off" ? "on" : "off"
             }
-            // newonoff=="on" ? item.on() : item.off()
+            newonoff=="on" ? item.on() : item.off()
             if ( swattr.isNumber() ) {
                 newsw = swattr.toInteger()
                 item.setLevel(newsw)
             }
+            skiponoff = true
             break               
               
         }
         
-        newonoff=="on" ? item.on() : item.off()
+        if ( ! skiponoff ) {
+        	newonoff=="on" ? item.on() : item.off()
+        }
         resp = [switch: newonoff]
         if ( newsw ) { resp.put("level", newsw) }
         if ( newcolor ) { resp.put("color", newcolor) }
@@ -1423,7 +1375,7 @@ def setMusic(swid, cmd, swattr) {
               item.setLevel(newsw)
               resp['level'] = newsw
               break
-              
+
         case "level":
               newsw = cmd.toInteger()
               item.setLevel(newsw)
@@ -1496,57 +1448,3 @@ def setRoutine(swid, cmd, swattr) {
     }
     return routine
 }
-
-/*************************************************************************/
-/* webCoRE Connector v0.2                                                */
-/*************************************************************************/
-/*  Copyright 2016 Adrian Caramaliu <ady624(at)gmail.com>                */
-/*                                                                       */
-/*  This program is free software: you can redistribute it and/or modify */
-/*  it under the terms of the GNU General Public License as published by */
-/*  the Free Software Foundation, either version 3 of the License, or    */
-/*  (at your option) any later version.                                  */
-/*                                                                       */
-/*  This program is distributed in the hope that it will be useful,      */
-/*  but WITHOUT ANY WARRANTY; without even the implied warranty of       */
-/*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the         */
-/*  GNU General Public License for more details.                         */
-/*                                                                       */
-/*  You should have received a copy of the GNU General Public License    */
-/*  along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
-/*************************************************************************/
-/*  Initialize the connector in your initialize() method using           */
-/*     webCoRE_init()                                                    */
-/*  Optionally, pass the string name of a method to call when a piston   */
-/*  is executed:                                                         */
-/*     webCoRE_init('pistonExecutedMethod')                              */
-/*************************************************************************/
-/*  List all available pistons by using one of the following:            */
-/*     webCoRE_list() - returns the list of id/name pairs                */
-/*     webCoRE_list('id') - returns the list of piston IDs               */
-/*     webCoRE_list('name') - returns the list of piston names           */
-/*************************************************************************/
-/*  Execute a piston by using the following:                             */
-/*     webCoRE_execute(pistonIdOrName)                                   */
-/*  The execute method accepts either an id or the name of a             */
-/*  piston, previously retrieved by webCoRE_list()                       */
-/*************************************************************************/
-private webCoRE_handle(){return'webCoRE'}
-private webCoRE_init(pistonExecutedCbk)
-{
-    state.webCoRE=(state.webCoRE instanceof Map?state.webCoRE:[:])+(pistonExecutedCbk?[cbk:pistonExecutedCbk]:[:]);
-    subscribe(location,"${webCoRE_handle()}.pistonList",webCoRE_handler);
-    if(pistonExecutedCbk)subscribe(location,"${webCoRE_handle()}.pistonExecuted",webCoRE_handler);webCoRE_poll();
-}
-private webCoRE_poll(){sendLocationEvent([name: webCoRE_handle(),value:'poll',isStateChange:true,displayed:false])}
-public  webCoRE_execute(pistonIdOrName,Map data=[:]){def i=(state.webCoRE?.pistons?:[]).find{(it.name==pistonIdOrName)||(it.id==pistonIdOrName)}?.id;if(i){sendLocationEvent([name:i,value:app.label,isStateChange:true,displayed:false,data:data])}}
-public  webCoRE_list(mode)
-{
-	def p=state.webCoRE?.pistons;
-    if(p)p.collect{
-		mode=='id'?it.id:(mode=='name'?it.name:[id:it.id,name:it.name])
-        // log.debug "Reading piston: ${it}"
-	}
-    return p
-}
-public  webCoRE_handler(evt){switch(evt.value){case 'pistonList':List p=state.webCoRE?.pistons?:[];Map d=evt.jsonData?:[:];if(d.id&&d.pistons&&(d.pistons instanceof List)){p.removeAll{it.iid==d.id};p+=d.pistons.collect{[iid:d.id]+it}.sort{it.name};state.webCoRE = [updated:now(),pistons:p];};break;case 'pistonExecuted':def cbk=state.webCoRE?.cbk;if(cbk&&evt.jsonData)"$cbk"(evt.jsonData);break;}}

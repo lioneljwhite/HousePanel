@@ -19,6 +19,7 @@
  * 
  *
  * Revision History
+ * 1.50       Enable Hubitat devices when on same local network as HP
  * 1.49       sliderhue branch to implement slider and draft color picker
  * 1.48       Integrate @nitwitgit (Nick) TileEdit V3.2
  * 1.47       Integrate Nick's color picker and custom dialog
@@ -219,6 +220,29 @@ function getResponse($host, $access_token) {
     return $edited;
 }
 
+function getHubitatDevices($path) {
+
+    $host = HUBITAT_HOST . "/apps/api/" . HUBITAT_ID . "/" . $path;
+    $headertype = array("Authorization: Bearer " . HUBITAT_ACCESS_TOKEN);
+    $nvpreq = "access_token=" . HUBITAT_ACCESS_TOKEN; // client_secret=" . urlencode(CLIENT_SECRET) . "&scope=app&client_id=" . urlencode(CLIENT_ID);
+    $response = curl_call($host, $headertype, $nvpreq, "POST");
+    
+    // configure returned array with the "id" as the key and check for proper return
+    // no longer do this - index simply with integers
+    $edited = array();
+    if ($response && is_array($response) && count($response)) {
+        foreach ($response as $k => $content) {
+            $id = "h_" . $content["id"];
+            $thetype = $content["type"];
+            
+            // make a unique index for this thing based on id and type
+            $idx = $thetype . "|" . $id;
+            $edited[$idx] = array("id" => $id, "name" => $content["name"], "value" => $content["value"], "type" => $thetype);
+        }
+    }
+    return $edited;
+}
+
 // function to get authorization code
 // this does a redirect back here with results
 function getAuthCode($returl)
@@ -305,6 +329,17 @@ function getAllThings($endpt, $access_token) {
                             "modes", "blanks", "images", "pistons", "others");
         foreach ($groovytypes as $key) {
             $newitem = getResponse($endpt . "/" . $key, $access_token);
+            if ($newitem && count($newitem)>0) {
+                $allthings = array_merge($allthings, $newitem);
+            }
+        }
+        
+        // get Hubitat devices
+        $hubitattypes = array("switches", "lights", "dimmers","bulbs","momentaries","contacts",
+                            "sensors", "locks", "thermostats", "temperatures", "valves",
+                            "doors", "illuminances", "smokes", "waters", "presences");
+        foreach ($hubitattypes as $key) {
+            $newitem = getHubitatDevices($key);
             if ($newitem && count($newitem)>0) {
                 $allthings = array_merge($allthings, $newitem);
             }
@@ -557,16 +592,16 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
     $tc = "";
     // add a name specific tag to the wrapper class
     // and include support for hue bulbs - fix a few bugs too
-    if ( in_array($tkey, array("heat", "cool", "vol", "hue", "saturation", "colorTemperature") )) {
+    if ( in_array($tkey, array("heat", "cool", "vol", "hue", "saturation") )) {
 //    if ($tkey=="heat" || $tkey=="cool" || $tkey=="level" || $tkey=="vol" ||
 //        $tkey=="hue" || $tkey=="saturation" || $tkey=="colorTemperature") {
         $tkeyval = $tkey . "-val";
-        if ( $bgcolor && (in_array($tkey, array("hue","saturation","colorTemperature"))) ) {
+        if ( $bgcolor && (in_array($tkey, array("hue","saturation"))) ) {
             $colorval = $bgcolor;
         } else {
             $colorval = "";
         }
-        $tc.= "<div class=\"overlay $thingtype" . $subtype . " $tkey" . " v_$kindex\">";
+        $tc.= "<div class=\"overlay $thingtype $tkey" . " v_$kindex\">";
         $tc.= "<div aid=\"$i\" subid=\"$tkey\" class=\"$tkey-dn\"></div>";
         $tc.= "<div aid=\"$i\" subid=\"$tkey\" title=\"$tkey\"$colorval class=\"$tkeyval\" id=\"a-$i"."-$tkey\">" . $tval . "</div>";
         $tc.= "<div aid=\"$i\" subid=\"$tkey\" class=\"$tkey-up\"></div>";
@@ -608,17 +643,11 @@ function putElement($kindex, $i, $j, $thingtype, $tval, $tkey="value", $subtype=
             $tkeyshow = " ".$tkey;
         }
         // include class for main thing type, the subtype, a sub-key, and a state (extra)
-        // make background the color based on value
-        if ( $bgcolor && $tkey=="color" ) {
-            $colorval = $bgcolor;
-        } else {
-            $colorval = "";
-        }
         $tc.= "<div class=\"overlay $tkey v_$kindex\">";
-        if ( $tkey == "level" ) {
+        if ( $tkey == "level" || $tkey=="colorTemperature" ) {
             $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" value=\"$tval\" title=\"$tkey\" class=\"" . $thingtype . $tkeyshow . " p_$kindex" . "\" id=\"a-$i-$tkey" . "\">" . "</div>";
         } else {
-            $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" title=\"$tkey\"$colorval class=\"" . $thingtype . $subtype . $tkeyshow . " p_$kindex" . $extra . "\" id=\"a-$i-$tkey" . "\">" . $tval . "</div>";
+            $tc.= "<div aid=\"$i\" type=\"$thingtype\"  subid=\"$tkey\" title=\"$tkey\" class=\"" . $thingtype . $subtype . $tkeyshow . " p_$kindex" . $extra . "\" id=\"a-$i-$tkey" . "\">" . $tval . "</div>";
         }
         $tc.= "</div>";
     }
@@ -704,6 +733,45 @@ function getNewPage(&$cnt, $allthings, $roomtitle, $kroom, $things, $indexoption
     // end this tab which is a different type of panel
     $tc.="</div>";
     return $tc;
+}
+
+function doHubitat($path, $swid, $swtype, $swval="none", $swattr="none") {
+    
+    // intercept clock things to return updated date and time
+    if ($swtype==="clock") {
+        $weekday = date("l");
+        $dateofmonth = date("M d, Y");
+        $timeofday = date("g:i a");
+        $timezone = date("T");
+        $response = array("weekday" => $weekday, "date" => $dateofmonth, "time" => $timeofday, "tzone" => $timezone);
+    } else if ($swtype ==="image") {
+        $response = array("url" => $swid);
+    } else {
+        $host = HUBITAT_HOST . "/apps/api/" . HUBITAT_ID . "/" . $path;
+        $headertype = array("Authorization: Bearer " . HUBITAT_ACCESS_TOKEN);
+        $nvpreq = "access_token=" . HUBITAT_ACCESS_TOKEN .
+                  "&swid=" . urlencode($swid) . "&swattr=" . urlencode($swattr) . 
+                  "&swvalue=" . urlencode($swval) . "&swtype=" . urlencode($swtype);
+        $response = curl_call($host, $headertype, $nvpreq, "POST");
+    
+        // update session with new status
+        if ( isset($_SESSION["allthings"]) ) {
+            $allthings = $_SESSION["allthings"];
+            $idx = $swtype . "|" . $swid;
+            if ( isset($allthings[$idx]) && $swtype==$allthings[$idx]["type"] ) {
+                $newval = array_merge($allthings[$idx]["value"], $response);
+                $allthings[$idx]["value"] = $newval;
+                $_SESSION["allthings"] = $allthings;
+            }
+        }
+        
+        if (!response) {
+            $response = array("name" => "Unknown", $swtype => $swval);
+        }
+    }
+    
+    return json_encode($response);
+    
 }
 
 function doAction($host, $access_token, $swid, $swtype, $swval="none", $swattr="none") {
@@ -1630,7 +1698,6 @@ function is_ssl() {
 
     // initial call or a content load or ajax call
     $tc = "";
-    $first = false;
     $endpt = false;
     $access_token = false;
 
@@ -1647,35 +1714,20 @@ function is_ssl() {
         $access_token = $_REQUEST["hmtoken"];
         $endpt = $_REQUEST["hmendpoint"];
     }
-    if ( $access_token && $endpt ) {
-        if (USER_SITENAME!==FALSE) {
-            $sitename = USER_SITENAME;
-        } else if ( isset($_COOKIE["hmsitename"]) ) {
-            $sitename = $_COOKIE["hmsitename"];
-        } else {
-            $sitename = "SmartHome";
-            // setcookie("hmsitename", $sitename, $expiry, "/", $serverName);
-        }
 
-        if (DEBUG) {       
-            $tc.= "<div class=\"debug\">";
-            $tc.= "access_token = $access_token<br />";
-            $tc.= "endpt = $endpt<br />";
-            $tc.= "sitename = $sitename<br />";
-            if (USER_ACCESS_TOKEN!==FALSE && USER_ENDPT!==FALSE) {
-                $tc.= "cookies skipped - user provided the access_token and endpt values listed above<br />";
-            } else {
-                $tc.= "<br />cookies = <br /><pre>";
-                $tc.= print_r($_COOKIE, true);
-                $tc.= "</pre>";
-            }
-            $tc.= "</div>";
-        }
+    // get the site name
+    if (USER_SITENAME!==FALSE) {
+        $sitename = USER_SITENAME;
+    } else if ( isset($_COOKIE["hmsitename"]) ) {
+        $sitename = $_COOKIE["hmsitename"];
+    } else {
+        $sitename = "SmartHome";
     }
+    
+    $valid = ( ($access_token && $endpt) || ( HUBITAT_HOST && HUBITAT_ID && HUBITAT_ACCESS_TOKEN ) );
 
     // cheeck if cookies are set
-    if (!$endpt || !$access_token) {
-        $first = true;
+    if ( ! $valid ) {
         unset($_SESSION["allthings"]);
         $tc .= "<div><h2>" . APPNAME . "</h2>";
         $tc.= authButton("SmartHome", $returnURL);
@@ -1696,15 +1748,15 @@ function is_ssl() {
     $swattr = "";
     $tileid = "";
     if ( isset($_GET["useajax"]) ) { $useajax = $_GET["useajax"]; }
+    else if ( isset($_POST["useajax"]) ) { $useajax = $_POST["useajax"]; }
     if ( isset($_GET["type"]) ) { $swtype = $_GET["type"]; }
+    else if ( isset($_POST["type"]) ) { $swtype = $_POST["type"]; }
     if ( isset($_GET["id"]) ) { $swid = $_GET["id"]; }
-    if ( isset($_POST["useajax"]) ) { $useajax = $_POST["useajax"]; }
-    if ( isset($_POST["type"]) ) { $swtype = $_POST["type"]; }
-    if ( isset($_POST["id"]) ) { $swid = $_POST["id"]; }
+    else if ( isset($_POST["id"]) ) { $swid = $_POST["id"]; }
 
     // implement ability to use tile number to get the $swid information
     if ( isset($_GET["tile"]) ) { $tileid = $_GET["tile"]; }
-    if ( isset($_POST["tile"]) ) { $tileid = $_POST["tile"]; }
+    else if ( isset($_POST["tile"]) ) { $tileid = $_POST["tile"]; }
     if ( $swid=="" && $tileid ) {
         $oldoptions = readOptions();
         $idx = array_search($tileid, $oldoptions["index"]);
@@ -1719,7 +1771,7 @@ function is_ssl() {
         if ( array_key_exists($idx, $options) ) { $tileid = $options[$idx]; }
     }
     
-    if ( $useajax && $endpt && $access_token ) {
+    if ( $useajax && $valid ) {
         switch ($useajax) {
             case "doaction":
                 if ( isset($_GET["value"]) ) { $swval = $_GET["value"]; }
@@ -1728,10 +1780,23 @@ function is_ssl() {
                 if ( isset($_POST["attr"]) ) { $swattr = $_POST["attr"]; }
                 echo doAction($endpt . "/doaction", $access_token, $swid, $swtype, $swval, $swattr);
                 break;
+                
+            case "dohubitat":
+                if ( isset($_GET["value"]) ) { $swval = $_GET["value"]; }
+                if ( isset($_GET["attr"]) ) { $swattr = $_GET["attr"]; }
+                if ( isset($_POST["value"]) ) { $swval = $_POST["value"]; }
+                if ( isset($_POST["attr"]) ) { $swattr = $_POST["attr"]; }
+                echo doHubitat("doaction", $swid, $swtype, $swval, $swattr);
+                break;
         
             case "doquery":
                 // echo "tile = $tileid <br />id = $swid <br />type = $swtype <br />token = $access_token <br />";
                 echo doAction($endpt . "/doquery", $access_token, $swid, $swtype);
+                break;
+        
+            case "queryhubitat":
+                // echo "tile = $tileid <br />id = $swid <br />type = $swtype <br />token = $access_token <br />";
+                echo doHubitat("doquery", $swid, $swtype);
                 break;
         
             case "wysiwyg":
@@ -1749,6 +1814,18 @@ function is_ssl() {
                 if ( isset($_POST["attr"]) ) { $swattr = $_POST["attr"]; }
                 echo setOrder($endpt, $access_token, $swid, $swtype, $swval, $swattr, $sitename, $returnURL);
                 break;
+                
+            case "confighubitat":
+                if ( isset($_GET["value"]) ) { $swval = $_GET["value"]; }
+                if ( isset($_GET["attr"]) ) { $swattr = $_GET["attr"]; }
+                if ( isset($_POST["value"]) ) { $swval = $_POST["value"]; }
+                if ( isset($_POST["attr"]) ) { $swattr = $_POST["attr"]; }
+                echo $swattr . " " . $swval;
+                setcookie("hubitatToken", $swattr, $expiry, "/", $serverName);
+                setcookie("hubitatID", $swval, $expiry, "/", $serverName);
+                exit(0);
+                break;
+                
         
             // implement free form drag drap capability
             case "dragdrop":
@@ -1782,8 +1859,6 @@ function is_ssl() {
                 
                 unset($_SESSION["allthings"]);
                 $allthings = getAllThings($endpt, $access_token);
-    
-                // reload the page
                 $location = $returnURL;
                 header("Location: $location");
                 break;
@@ -1798,6 +1873,9 @@ function is_ssl() {
                 $tc.= "<div>sitename = $sitename </div>";
                 $tc.= "<div>access_token = $access_token </div>";
                 $tc.= "<div>endpt = $endpt </div>";
+                $tc.= "<div>Hubitat Hub IP = " . HUBITAT_HOST . "</div>";
+                $tc.= "<div>Hubitat ID = " . HUBITAT_ID . "</div>";
+                $tc.= "<div>Hubitat Token = " . HUBITAT_ACCESS_TOKEN . "</div>";
                 $tc.= "<div>url = $returnURL </div>";
                 $tc.= "<table class=\"showid\">";
                 $tc.= "<thead><tr><th class=\"thingname\">" . "Name" . "</th><th class=\"thingvalue\">" . "Thing Value" . 
@@ -1847,7 +1925,7 @@ function is_ssl() {
     
     // final save options step involves reloading page via submit action
     // because just about everything could have changed
-    if ($endpt && $access_token && isset($_POST["options"])) {
+    if ( $valid && isset($_POST["options"])) {
         $location = $returnURL;
         header("Location: $location");
         exit(0);
@@ -1855,17 +1933,8 @@ function is_ssl() {
 
 // ********************************************************************************************
 
-    // *** check for errors ***
-    if ( isset($_SESSION['curl_error_no']) ) {
-        $tc.= "<br /><div class=\"error\">Errors detected<br />";
-        $tc.= "Error number: " . $_SESSION['curl_error_no'] . "<br />";
-        $tc.= "Found Error msg:    " . $_SESSION['curl_error_msg'] . "</div>";
-        unset($_SESSION['curl_error_no']);
-        unset($_SESSION['curl_error_msg']);
-        $skindir = "skin-housepanel";
-        
     // display the main page
-    } else if ( $access_token && $endpt ) {
+    if ( $valid ) {
     
 //        if ($sitename) {
 //            $tc.= authButton($sitename, $returnURL);
@@ -1945,20 +2014,14 @@ function is_ssl() {
         
         // create button to show the Options page instead of as a Tab
         // but only do this if we are not in kiosk mode
-        $tc.= "<div class=\"buttons\">";
+        $tc.= "<form>";
+        $tc.= hidden("returnURL", $returnURL);
+        $tc.= "<div id=\"controlpanel\">";
         if ( !$kioskmode ) {
-            $tc.= "<form class=\"buttons\" action=\"$returnURL\"  method=\"POST\">";
-            $tc.= hidden("useajax", "showoptions");
-            $tc.= hidden("type", "none");
-            $tc.= hidden("id", 0);
-            $tc.= "<input class=\"submitbutton\" value=\"Options\" name=\"submitoption\" type=\"submit\" />";
-            $tc.= "</form>";
-            $tc.= "<form class=\"buttons\" action=\"$returnURL\"  method=\"POST\">";
-            $tc.= hidden("useajax", "refresh");
-            $tc.= hidden("type", "none");
-            $tc.= hidden("id", 0);
-            $tc.= "<input class=\"submitbutton\" value=\"Refresh\" name=\"submitrefresh\" type=\"submit\" />";
-            $tc.= "</form>";
+            $tc.='<div id="showoptions" class="formbutton">Options</div>';
+            $tc.='<div id="refresh" class="formbutton">Refresh</div>';
+            $tc.='<div id="refactor" class="formbutton">Refactor</div>';
+            $tc.='<div id="showid" class="formbutton">Show ID\'s</div>';
             $tc.='<div id="restoretabs" class="restoretabs">Hide Tabs</div>';
 
             $tc.= "<div class=\"modeoptions\" id=\"modeoptions\">
@@ -1967,20 +2030,8 @@ function is_ssl() {
               <input class=\"radioopts\" type=\"radio\" name=\"usemode\" value=\"DragDrop\" ><span class=\"radioopts\">Drag</div>
             </div><div id=\"opmode\"></div>";
         }
-        $tc.='</div>';
-   
-    } else {
-
-// this should never ever happen...
-        if (!$first) {
-            echo "<br />Invalid request... you are not authorized for this action.";
-            // echo "<br />access_token = $access_token";
-            // echo "<br />endpoint = $endpt";
-            echo "<br /><br />";
-            echo $tc;
-            exit;    
-        }
-    
+        $tc.="</div>";
+        $tc.= "</form>";
     }
 
     // display the dynamically created web site

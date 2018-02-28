@@ -880,6 +880,16 @@ function setupTimers() {
     });
 }
 
+function updateMode() {
+    $('div.thing.mode-thing').each(function() {
+        var otheraid = $(this).attr("id").substring(2);
+        var rbid = $(this).attr("bid");
+        setTimeout(function() {
+            refreshTile(otheraid, rbid, "mode");
+        }, 2000);
+    });
+}
+
 // find all the things with "bid" and update the value clicked on somewhere
 // this routine is called every time we click on something to update its value
 // but we also update similar things that are impacted by this click
@@ -923,6 +933,7 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
     // the second call is needed to make screen refreshes work properly
 //    if (thetype==="switch" || thetype==="bulb" || thetype==="light") {
     if (trigger=="switch.on" || trigger=="switch.off") {
+        updateMode();
         $('div.thing[bid="'+bid+'"][type="switch"]').each(function() {
             var otheraid = $(this).attr("id").substring(2);
             if (otheraid !== aid) { updateTile(otheraid, pvalue); }
@@ -954,16 +965,10 @@ function updAll(trigger, aid, bid, thetype, pvalue) {
     }
     
     // if this is a routine action then update the modes immediately
+    // also do this update for piston or momentary refreshes
     // use the same delay technique used for music tiles noted above
     if (thetype==="routine") {
-        $('div.thing.mode-thing').each(function() {
-            var otheraid = $(this).attr("id").substring(2);
-            var rbid = $(this).attr("bid");
-            setTimeout(function() {
-                refreshTile(otheraid, rbid, "mode");
-            }, 2000);
-        });
-        
+        updateMode();
     }
     
     // if this is a switchlevel go through and set all switches
@@ -1043,7 +1048,7 @@ function setupPage(trigger) {
         
         // for switches and locks set the command to toggle
         // for most things the behavior will be driven by the class value = swattr
-        if (thetype==="switch" || thetype==="lock" || 
+        if (thetype==="switch" || thetype==="lock" || thetype==="door" ||
             thetype==="switchlevel" ||thetype==="bulb" || thetype==="light") {
             thevalue = "toggle";
         } else {
@@ -1081,6 +1086,7 @@ function setupPage(trigger) {
                             $(that).html("on");
                         }
                         setTimeout(function(){classarray.myMethod();}, 1500);
+                        updateMode();
                     }
                 });
 //        } else if (thetype==="switch" || thetype==="lock" || thetype==="switchlevel" ||
@@ -1093,7 +1099,7 @@ function setupPage(trigger) {
                    {useajax: ajaxcall, id: bid, type: thetype, value: thevalue, attr: theclass},
                    function (presult, pstatus) {
                         if (pstatus==="success" ) {
-//                            alert( strObject(presult) );
+                            alert( strObject(presult) );
                             updAll(trigger,aid,bidupd,thetype,presult);
                         }
                    }, "json"

@@ -38,8 +38,8 @@ function getCookie(cname) {
     return "";
 }
 
-// window.addEventListener("load", function(event) {
-$(document).ready( function() {
+window.addEventListener("load", function(event) {
+//$(document).ready( function() {
 
     // set the global return URL value
     returnURL = $("input[name='returnURL']").val();
@@ -1106,7 +1106,7 @@ function setupPage(trigger) {
                             $(that).addClass("firing");
                             $(that).html("firing");
                         }
-                        else if ( thevalue && thevalue.hasOwnProperty("indexOf") && thevalue.indexOf("on") >= 0 ) {
+                        else if ( $(that).hasClass("on") ) {
                             $(that).removeClass("on");
                             $(that).addClass("off");
                             $(that).html("off");

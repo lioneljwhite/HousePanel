@@ -5,8 +5,8 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-define('CLIENT_ID', 'c1e9eaa3-fe5e-4179-a8db-aaf9b5e8b3fe');
-define('CLIENT_SECRET', '85027806-249b-4a53-8a79-4d46793165f9');
+define('CLIENT_ID', '');
+define('CLIENT_SECRET', '');
 define('ST_WEB','https://graph.api.smartthings.com');
 define('TIMEZONE', 'America/Detroit');
 // provide the access_token and endpt values below if your browser does not support cookies

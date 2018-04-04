@@ -121,15 +121,9 @@ function htmlHeader($skindir="skin-housepanel") {
     $tc.= '<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">';
     $tc.= '<script src="https://code.jquery.com/jquery-1.12.4.js"></script>';
     $tc.= '<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>';
-    $tc.= '<script src="http://malsup.github.com/jquery.form.js"></script>';
 
-    // TODO - switch to the jquery mobile framework
-    /*
-    $tc.= '<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />';
-    $tc.= '<script src="http://code.jquery.com/jquery-1.12.4.min.js"></script>';
-    $tc.= '<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>';
-     * 
-     */
+    // TODO: replace this with jQuery native handling and update editTile
+    $tc.= '<script src="jquery.form.min.js"></script>';
     
     // load quicktime script for video
     $tc.= '<script src="ac_quicktime.js"></script>';
@@ -169,8 +163,7 @@ function htmlHeader($skindir="skin-housepanel") {
         $clicktypes = array("switch.on","switch.off",
                             "lock.locked","lock.unlocked","door.open","door.closed",
                             "momentary","shm",
-                            "heat-dn","heat-up",
-                            "cool-dn","cool-up","thermomode","thermofan",
+                            "heat-dn","heat-up","cool-dn","cool-up","thermomode","thermofan",
                             "musicmute","musicstatus", 
                             "music-previous","music-pause","music-play","music-stop","music-next",
                             "level-dn","level-up", "level-val","mode.themode",
@@ -742,6 +735,71 @@ function getNewPage(&$cnt, $allthings, $roomtitle, $kroom, $things, $indexoption
     return $tc;
 }
 
+function getCatalog($allthings) {
+    $thingtypes = array("routine","switch", "light", "switchlevel", "bulb", "momentary","contact",
+                        "motion", "lock", "thermostat", "temperature", "music", "valve",
+                        "door", "illuminance", "smoke", "water",
+                        "weather", "presence", "mode", "shm", "piston", "other",
+                        "clock","blank","image","frame");
+    sort($thingtypes);
+    $options = getOptions($allthings);
+    $useroptions = $options["useroptions"];
+    $tc = "";
+    $tc.= "<div id=\"catalog\">";
+    $tc.= "<div class=\"filteroption\">Option Filters: ";
+    $tc.= "<div id=\"allid\" class=\"smallbutton\">All</div>";
+    $tc.= "<div id=\"noneid\" class=\"smallbutton\">None</div>";
+    $tc.= "</div>";
+    $tc.= "<table class=\"catoptions\"><tr>";
+    $i= 0;
+    foreach ($thingtypes as $opt) {
+        $i++;
+        if ( in_array($opt,$useroptions ) ) {
+            $tc.= "<td><input type=\"checkbox\" name=\"useroptions[]\" value=\"" . $opt . "\" checked=\"1\"></td>";
+        } else {
+            $tc.= "<td><input type=\"checkbox\" name=\"useroptions[]\" value=\"" . $opt . "\"></td>";
+        }
+        $tc.= "<td class=\"optname\">" .  $opt . "</td>";
+        if ( $i % 3 == 0) {
+            $tc.= "</tr><tr>";
+        }
+    }
+    $tc.= "</tr></table>";
+    
+    $tc.= "<br />";
+    $i= 0;
+    foreach($allthings as $thesensor) {
+        $bid = $thesensor["id"];
+        if ( is_numeric($bid) ) {
+            $bid = "h_" . $bid;
+        }
+        // $thingvalue = $thesensor["value"];
+        $thingtype = $thesensor["type"];
+        $thingname = $thesensor["name"];
+
+        if (strlen($thingname) > 32 ) {
+            $thingpr = substr($thingname,0,30) . " ...";
+        } else {
+            $thingpr = $thingname;
+        }
+        
+        if (in_array($thingtype, $useroptions)) {
+            $hide = "";
+        } else {
+            $hide = "hidden ";
+        }
+
+        $tc.= "<div id=\"cat-$i\" bid=\"$bid\" type=\"$thingtype\" ";
+        $tc.= "panel=\"catalog\" class=\"thing " . $hide . "catalog-thing\">"; 
+        $tc.= "<div class=\"thingname\">$thingpr</div>";
+        $tc.= "<div class=\"thingtype\">$thingtype</div>";
+        $tc.="</div>";
+        $i++;
+    }
+    $tc.= "</div>";
+    return $tc;
+}
+
 function doHubitat($path, $swid, $swtype, $swval="none", $swattr="none") {
     
     // intercept clock things to return updated date and time
@@ -904,16 +962,12 @@ function setOrder($endpt, $access_token, $swid, $swtype, $swval, $swattr, $siten
 }
 
 function readOptions() {
-    $options = false;
     if ( file_exists("hmoptions.cfg") ) {
-        $f = fopen("hmoptions.cfg","rb");
-        $optsize = filesize("hmoptions.cfg");
-        if ($f && $optsize) {
-            $serialoptions = fread($f, $optsize );
-            $serialnew = str_replace(array("\n","\r","\t"), "", $serialoptions);
-            $options = json_decode($serialnew,true);
-        }
-        fclose($f);
+        $serialoptions = file_get_contents("hmoptions.cfg");
+        $serialnew = str_replace(array("\n","\r","\t"), "", $serialoptions);
+        $options = json_decode($serialnew,true);
+    } else {
+        $options = false;
     }
     return $options;
 }
@@ -964,8 +1018,9 @@ function writeOptions($options) {
     $f = fopen("hmoptions.cfg","wb");
     $str =  json_encode($options);
     fwrite($f, cleanupStr($str));
+    fflush($f);
     fclose($f);
-	chmod($f, 0777);
+    chmod($f, 0777);
 }
 
 // make the string easier to look at
@@ -1127,7 +1182,7 @@ function getOptions($allthings) {
         }
 
         // find the largest index number for a sensor in our index
-        // and undoo the old flawed absolute positioning
+        // and undo the old flawed absolute positioning
         $cnt = count($options["index"]) - 1;
         foreach ($options["index"] as $thingid => $idxarray) {
             if ( is_array($idxarray) ) {
@@ -1142,6 +1197,7 @@ function getOptions($allthings) {
         $cnt++;
         
         // update the index with latest sensor information
+        /*
         foreach ($allthings as $thingid =>$thesensor) {
             if ( !key_exists($thingid, $options["index"]) ) {
                 $options["index"][$thingid] = $cnt;
@@ -1160,27 +1216,24 @@ function getOptions($allthings) {
             }
         }
         
-        // make sure there is at least one room
-//        $rcount = count($options["rooms"]);
-//        if (!$rcount) {
-//            $options["rooms"]["All"] = 0;
-//        }
+        */
+        
         
         // make sure all options are in a valid room
         // we don't need to check for valid thing as that is done later
         // this way things can be removed and added back later
         // and they will still show up where they used to be setup
         // TODO: add new rooms to the options["things"] index
-        $tempthings = $options["things"];
-        $k = 0;
-        foreach ($tempthings as $key => $var) {
-            if ( !key_exists($key, $options["rooms"]) ) {
-                array_splice($options["things"], $k, 1);
-                $updated = true;
-            } else {
-                $k++;
-            }
-        }
+//        $tempthings = $options["things"];
+//        $k = 0;
+//        foreach ($tempthings as $key => $var) {
+//            if ( !key_exists($key, $options["rooms"]) ) {
+//                unset( $options["things"][$key][$var] );
+//                $updated = true;
+//            } else {
+//                $k++;
+//            }
+//        }
         
     }
         
@@ -1289,9 +1342,10 @@ function getOptionsPage($options, $retpage, $allthings, $sitename) {
     
     $tc = "";
     
-    $tc.= "<div class='optionstable'>";
+    $tc.= "<div id=\"optionstable\" class=\"optionstable\">";
     $tc.= "<form id=\"optionspage\" class=\"options\" name=\"options" . "\" action=\"$retpage\"  method=\"POST\">";
     $tc.= hidden("options",1);
+    $tc.= hidden("returnURL", $retpage);
     $tc.= "<div class=\"skinoption\">Skin directory name: <input id=\"skinid\" width=\"240\" type=\"text\" name=\"skin\"  value=\"$skinoptions\"/></div>";
     $tc.= "<label for=\"kioskid\" class=\"kioskoption\">Kiosk Mode: </label>";
     
@@ -1514,6 +1568,68 @@ function inroom($idx, $things) {
         }
     }
     return $found;
+}
+
+function addThing($bid, $thingtype, $panel, $cnt, $allthings) {
+    
+    $idx = $thingtype . "|" . $bid;
+    $options = readOptions();
+    $tilenum = intval($options["index"][$idx], 10);
+    $thesensor = $allthings[$idx];
+    
+    // make sure tile number is big
+    if ( ! is_numeric($cnt) ) {
+        $cnt = substr($cnt,2);
+    }
+    $cnt = intval($cnt);
+    if ( !$cnt || $cnt < 0 ) {
+        $cnt = 1000;
+    }
+    
+    // make a new tile based on the dragged information
+    $thing = makeThing($cnt, $tilenum, $thesensor, $panel);
+    
+    // add it to our system
+    $options["things"][$panel] = array_values($options["things"][$panel]);
+    $lastid = count( $options["things"][$panel] ) - 1;
+    $lastitem = $options["things"][$panel][$lastid];
+    $options["things"][$panel][] = array($tilenum, $lastitem[1], $lastitem[2]);
+    writeOptions($options);
+    
+    return $thing;
+}
+
+function delThing($bid, $thingtype, $panel, $tile) {
+    
+    $idx = $thingtype . "|" . $bid;
+    $options = readOptions();
+    $retcode = "error";
+    
+    if ( $panel && array_key_exists($panel, $options["things"]) &&
+                   array_key_exists($idx, $options["index"]) ) {
+
+        // as a double check the options file tile should match
+        // if it doesn't then something weird triggered drag drop
+        $tilenum = $options["index"][$idx];
+        if ( $tile == $tilenum ) {
+
+            // remove tile from this room
+            foreach ( $options["things"][$panel] as $key => $thing) {
+                if ( (is_array($thing) && $thing[0]==$tilenum) ||
+                     (!is_array($thing) && $thing==$tilenum) ) {
+                    unset( $options["things"][$panel][$key] );
+                    $retcode = "success";
+                    break;
+                }
+            }   
+
+            if ( $retcode == "success" ) {
+                $options["things"][$panel] = array_values($options["things"][$panel]);
+                writeOptions($options);
+            }
+        }
+    }
+    return $retcode;
 }
 
 // this processes a _POST return from the options page
@@ -1781,7 +1897,7 @@ function is_ssl() {
     // cheeck if cookies are set
     if ( ! $valid ) {
         unset($_SESSION["allthings"]);
-        $tc .= "<div><h2>" . APPNAME . "</h2>";
+        $tc .= "<br /><h2>" . APPNAME . "</h2><div>";
         $tc.= authButton("SmartHome", $returnURL);
         $tc.= "</div>";
     }
@@ -1818,7 +1934,7 @@ function is_ssl() {
     }
     
     // handle special non-groovy based tile types
-    if ( $swtype=="auto") {
+    if ( $swtype=="auto" && $swid) {
         if ( substr($swid,0,5)=="clock") {
             $swtype = "clock";
         } else if ( substr($swid,0,3)=="vid") {
@@ -1834,6 +1950,9 @@ function is_ssl() {
         if ( array_key_exists($idx, $options) ) { $tileid = $options[$idx]; }
     }
     
+    // handle all Ajax calls
+    // this block returns control to caller immediately
+    // it can either show a webpage or return a block of data to js file
     if ( $useajax && $valid ) {
         switch ($useajax) {
             case "doaction":
@@ -1888,7 +2007,6 @@ function is_ssl() {
                 setcookie("hubitatID", $swval, $expiry, "/", $serverName);
                 exit(0);
                 break;
-                
         
             // implement free form drag drap capability
             case "dragdrop":
@@ -1899,6 +2017,31 @@ function is_ssl() {
                 echo setPosition($endpt, $access_token, $swid, $swtype, $swval, $swattr, $sitename, $returnURL);
                 break;
         
+            // make new tile from drag / drop
+            case "dragmake":
+                if ( isset($_POST["value"]) ) { $swval = $_POST["value"]; }
+                if ( isset($_POST["attr"]) ) { $swattr = $_POST["attr"]; }
+                if ( $swid && $swtype && $swval && $swattr ) {
+                    $allthings = getAllThings($endpt, $access_token);
+                    $retcode = addThing($swid, $swtype, $swval, $swattr, $allthings);
+                } else {
+                    $retcode = "<div class='error'>error id = $swid type = $swtype val = $swval</div>";
+                }
+                echo $retcode;
+                break;
+            
+            // remove tile from drag / drop
+            case "dragdelete":
+                if ( isset($_POST["value"]) ) { $swval = $_POST["value"]; }
+                if ( isset($_POST["attr"]) ) { $swattr = $_POST["attr"]; }
+                if ( $swid && $swtype && $swval && swattr ) {
+                    $retcode = delThing($swid, $swtype, $swval, $swattr);
+                } else {
+                    $retcode = "error";
+                }
+                echo $retcode;
+                break;
+                
             case "showoptions":
                 $allthings = getAllThings($endpt, $access_token);
                 $options= getOptions($allthings);
@@ -1977,13 +2120,7 @@ function is_ssl() {
                 } else {
                     echo "error: invalid save options request";
                 }
-                
-//                $location = $returnURL;
-//                header("Location: $location");
-                
                 break;
-          // default:
-            //    echo "Unknown AJAX call useajax = [" . $useajax . "]";
         }
         exit(0);
     }
@@ -2001,13 +2138,7 @@ function is_ssl() {
     // display the main page
     if ( $valid ) {
     
-//        if ($sitename) {
-//            $tc.= authButton($sitename, $returnURL);
-//        }
-
         // read all the smartthings from API
-        // force re-read of all physical things
-        // unset($_SESSION["allthings"]);
         $allthings = getAllThings($endpt, $access_token);
         
         // get the options tab and options values
@@ -2028,15 +2159,15 @@ function is_ssl() {
             refactorOptions($allthings);
             writeCustomCss($skindir, "");
         }
-                
+
+        // new wrapper around catalog and things but excluding buttons
+        $tc.= '<div id="dragregion">';
+        
         $tc.= '<div id="tabs"><ul id="roomtabs">';
-        // go through rooms in order of desired display
         for ($k=0; $k< count($roomoptions); $k++) {
             
             // get name of the room in this column
             $room = array_search($k, $roomoptions);
-            // $roomlist = array_keys($roomoptions, $k);
-            // $room = $roomlist[0];
             
             // use the list of things in this room
             if ($room !== FALSE) {
@@ -2044,9 +2175,6 @@ function is_ssl() {
             }
         }
         
-        // create a configuration tab
-//        $room = "Options";
-//        $tc.= "<li class=\"nodrag\"><a href=\"#" . strtolower($room) . "-tab\">$room</a></li>";
         $tc.= '</ul>';
         
         $cnt = 0;
@@ -2054,48 +2182,41 @@ function is_ssl() {
 
         // changed this to show rooms in the order listed
         // this is so we just need to rewrite order to make sortable permanent
-        // for ($k=0; $k< count($roomoptions); $k++) {
         foreach ($roomoptions as $room => $kroom) {
-            
-            // get name of the room in this column
-            // $room = array_search($k, $roomoptions);
-            // $roomlist = array_keys($roomoptions, $k);
-            // $room = $roomlist[0];
-
-            // use the list of things in this room
-            // if ($room !== FALSE) {
             if ( key_exists($room, $thingoptions)) {
                 $things = $thingoptions[$room];
                 $tc.= getNewPage($cnt, $allthings, $room, $kroom, $things, $indexoptions, $kioskmode);
             }
         }
         
-        // add the options tab - changed to show as a separate page; see below
-//        $tc.= "<div id=\"options-tab\">";
-//        $tc.= getOptionsPage($options, $returnURL, $allthings, $sitename);
-//        $tc.= "</div>";
         // end of the tabs
+        $tc.= "</div>";
+        
+        // add catalog on right
+        $tc.= getCatalog($allthings);
+        
+        // end drag region enclosing catalog and main things
         $tc.= "</div>";
         
         // create button to show the Options page instead of as a Tab
         // but only do this if we are not in kiosk mode
         $tc.= "<form>";
         $tc.= hidden("returnURL", $returnURL);
-        $tc.= "<div id=\"controlpanel\">";
         if ( !$kioskmode ) {
+            $tc.= "<div id=\"controlpanel\">";
             $tc.='<div id="showoptions" class="formbutton">Options</div>';
             $tc.='<div id="refresh" class="formbutton confirm">Refresh</div>';
             $tc.='<div id="refactor" class="formbutton confirm">Refactor</div>';
             $tc.='<div id="showid" class="formbutton confirm">Show ID\'s</div>';
-            $tc.='<div id="restoretabs" class="restoretabs">Hide Tabs</div>';
+            // $tc.='<div id="restoretabs" class="restoretabs">Hide Tabs</div>';
 
             $tc.= "<div class=\"modeoptions\" id=\"modeoptions\">
               <input class=\"radioopts\" type=\"radio\" name=\"usemode\" value=\"Operate\" checked><span class=\"radioopts\">Operate</span>
               <input class=\"radioopts\" type=\"radio\" name=\"usemode\" value=\"Reorder\" ><span class=\"radioopts\">Reorder</span>
-              <input class=\"radioopts\" type=\"radio\" name=\"usemode\" value=\"DragDrop\" ><span class=\"radioopts\">Drag</div>
+              <input class=\"radioopts\" type=\"radio\" name=\"usemode\" value=\"DragDrop\" ><span class=\"radioopts\">Edit</div>
             </div><div id=\"opmode\"></div>";
+            $tc.="</div>";
         }
-        $tc.="</div>";
         $tc.= "</form>";
     }
 
@@ -2104,4 +2225,3 @@ function is_ssl() {
     echo $tc;
     echo htmlFooter();
     
-?>

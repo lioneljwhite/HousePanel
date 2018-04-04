@@ -18,6 +18,7 @@ div.maintable {
     -moz-transform-origin: 0 0;
     -o-transform-origin: 0 0;
     -webkit-transform-origin: 0 0;*/
+    width: auto;
 }
 h1, h2, h3 {
     color: #000000;
@@ -25,12 +26,32 @@ h1, h2, h3 {
     margin-bottom: 2px;    margin-top: 2px;    margin-left: 10px;
 }
 
-/*div {
-	background-size: contain;
-	-webkit-background-size: contain;
-	-moz-background-size: contain;
-	-o-background-size: contain;
-}*/
+div#tabs, div#controlpanel {
+    width: 1012px;
+/*    transform: scale(0.6);
+    -ms-transform: scale(0.6);
+    -moz-transform: scale(0.6);
+    -o-transform: scale(0.6);
+    -webkit-transform: scale(0.6);
+    transform-origin: 0 0;
+    -ms-transform-origin: 0 0;
+    -moz-transform-origin: 0 0;
+    -o-transform-origin: 0 0;
+    -webkit-transform-origin: 0 0;*/
+}
+
+div#catalog {
+    width: 510px;
+    display: inline-block;
+    position: absolute;
+    top: 0px;
+    left: 1014px;
+    border: 2px solid rgb(128, 128, 128);
+}
+div#dragregion {
+    width: 1526px;
+}
+
 .ui-widget.ui-widget-content{
 border-radius: 4px;
 width:100%;
@@ -85,10 +106,17 @@ div.skinoption input {
 div.filteroption {
     margin-top: 12px;
 }
-table.useroptions {
+table.useroptions, table.catoptions {
     margin-left: 8px;
     background-color: #eeeeee;
     border: solid 1px black;
+}
+table.catoptions {
+    margin-left: 5px;
+    width: 500px;
+}
+table.catoptions input {
+    margin-left: 15px;
 }
 td.optname {
     padding-left: 5px;
@@ -333,8 +361,11 @@ div.restoretabs, div.formbutton {
     width: 130px; height: 32px;
     margin-left: 4px; margin-right: 4px;
 }
-div.restoretabs.hidden {
+div.restoretabs.hidden, div.thing.hidden.catalog-thing {
     display: none;
+}
+div.thing.catalog-thing {
+    display: inline-block;
 }
 .smallbutton {
     padding: 4px;
@@ -352,7 +383,7 @@ div.modalbox {
     background-color: rgba(255, 255, 240, 1);
     color: rgba(0, 0, 0, 1);
     font-size: 12pt;
-    position: absolute; left: 5%; bottom: 5%; z-index: 999;
+    position: absolute; z-index: 999;
 }
 div.modalbuttons {
     margin-top: 5px;
@@ -1154,9 +1185,11 @@ div.shm.state.off, div.shm.state.stay, div.shm.state.away {
     color: rgba(255, 255, 255, 1);
 }
 div.shm.state {
-    background-size: 80px;
+    background-size: 70px;
     background-repeat: no-repeat;
     height: 90px;
+    background-position-x: center;
+    background-position-y: bottom;
 }
 div.shm.state.stay {
     background-image: url('icons/security-blue.png');
@@ -1389,6 +1422,7 @@ div.frame-thing {
     height: auto;
     background: none;
     box-shadow: none;
+    margin: 0px;
 }
 div.thingname.frame {
     width: 480px;
@@ -1565,6 +1599,9 @@ div.overlay.weatherIcon div.weather, div.overlay.forecastIcon div.weather {
     margin-left: 8px; margin-right: 8px;
     color: rgba(0, 0, 0, 1);
     background-size: 80px;
+}
+div.overlay.healthStatus {
+    display: none;
 }
 /* weather icons */
 div.overlay.weatherIcon div.clear, div.overlay.forecastIcon div.clear {

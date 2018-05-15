@@ -27,7 +27,7 @@ h1, h2, h3 {
 }
 
 div#tabs, div#controlpanel {
-    width: 1012px;
+    width: 1140px;
 /*    transform: scale(0.6);
     -ms-transform: scale(0.6);
     -moz-transform: scale(0.6);
@@ -45,11 +45,11 @@ div#catalog {
     display: inline-block;
     position: absolute;
     top: 0px;
-    left: 1014px;
+    left: 1142px;
     border: 2px solid rgb(128, 128, 128);
 }
 div#dragregion {
-    width: 1526px;
+    width: auto;
 }
 
 .ui-widget.ui-widget-content{
@@ -169,6 +169,7 @@ div.panel {
     position:relative;    background-repeat: no-repeat;
     background-position: 0 0;
     background-size: cover;
+    min-height: 600px;
 }
 
 <<<<<<< HEAD
@@ -377,13 +378,12 @@ div.thing.catalog-thing {
 
 div.modalbox {
     display: inline-block;
-    margin-left: 5px; margin-top: 5px;
+    text-align: left;
     padding: 5px;
-    border: 2px solid #3a5795;
-    background-color: rgba(255, 255, 240, 1);
+    background-color: rgba(255, 255, 246, 1);
     color: rgba(0, 0, 0, 1);
     font-size: 12pt;
-    position: absolute; z-index: 999;
+    position: absolute; z-index: 900;
 }
 div.modalbuttons {
     margin-top: 5px;
@@ -1354,6 +1354,22 @@ div.panel-all div.firing, div.panel-all div.piston.pistonName {
     color: #000000;
 }
 
+div.editlink, div.editlink:hover {
+    background-color: rgba(204, 0, 51, 1);
+    color: rgba(255, 255, 204, 1);
+    cursor: pointer;
+    font-size: 16pt;
+}
+div.editlink:hover {
+    background-color: rgba(204, 0, 51, 0.2);
+    position: relative;
+    box-shadow: 0px 0px 41px rgba(0, 0, 0, 0.50);
+    -moz-box-shadow: 0px 0px 41px rgba(0, 0, 0, 0.50);
+    -webkit-box-shadow: 0px 0px 41px rgba(0, 0, 0, 0.50); 
+    transition-duration: .2s;
+    -webkit-transition-duration: .2s;
+}
+
 /* Example custom settings from Ken's home */
 /* you should remove these since they will likely do nothing */
 
@@ -1449,7 +1465,6 @@ div.switch.yard.power {
 }*/
 div.video-thing {
     width: 369px;
-    height: 240px;
 }
 div.thingname.video {
     display: none;
@@ -1700,4 +1715,22 @@ div#opmode {
 }
 .minicolors-position-left .minicolors-panel {
     left: 60px;
+}
+
+/* disable commands in general */
+div._on, div._off, div._open, div._close, 
+div._onPhysical, div._offPhysical,
+div._startmotion, div._stopmotion, div.overlay._reset {
+    display: none;
+}
+div.other.lg.tv.switch {
+    display: none;
+}
+div.p_174 div.overlay._on, div.p_174 div.overlay._off, div.p_174._on, div.p_174._off {
+    display: inline-block;
+    color: rgba(255,255,255,1);
+    font-size: 12pt;
+}
+div.p_174 {
+    width: 420px;
 }

@@ -17,6 +17,8 @@
  * it displays and enables interaction with switches, dimmers, locks, etc
  * 
  * Revision history:
+ * 01/19/2019 - added power and begin prepping for push notifications
+ * 01/14/2019 - fix bonehead error with switches and locks not working right due to attr
  * 01/05/2019 - fix music controls to work again after separating icons out
  * 12/01/2018 - hub prefix option implemented for unique tiles with multiple hubs
  * 11/21/2018 - add routine to return location name
@@ -73,8 +75,8 @@ preferences {
         input "mybulbs", "capability.colorControl", hideWhenEmpty: true, multiple: true, required: false, title: "Bulbs"
     }
     section ("Motion and Presence") {
-    	input "mysensors", "capability.motionSensor", multiple: true, required: false, title: "Motion"
     	input "mypresences", "capability.presenceSensor", hideWhenEmpty: true, multiple: true, required: false, title: "Presence"
+    	input "mysensors", "capability.motionSensor", multiple: true, required: false, title: "Motion"
     }
     section ("Door and Contact Sensors") {
     	input "mycontacts", "capability.contactSensor", hideWhenEmpty: true, multiple: true, required: false, title: "Contact Sensors"
@@ -94,6 +96,7 @@ preferences {
     }
     section ("Music & Other Sensors") {
     	input "mymusics", "capability.musicPlayer", hideWhenEmpty: true, multiple: true, required: false, title: "Music Players"
+        input "mypower", "capability.powerMeter", multiple: true, required: false, title: "Power Meters"
     	input "myothers", "capability.sensor", multiple: true, required: false, title: "Other and Virtual Sensors"
     }
 }
@@ -128,10 +131,13 @@ def updated() {
 }
 
 def initialize() {
-    log.debug "Installed with settings: ${settings}"
     state.usepistons = usepistons
+    state.dologging = dologging
     if ( state.usepistons ) {
         webCoRE_init()
+    }
+    if ( state.dologging ) {
+        log.debug "Installed with settings: ${settings} "
     }
 }
 
@@ -145,7 +151,6 @@ def getWeatherInfo(evt) {
 // changed switch to only return switch so we can use it with other things
 // to get multiple attributes from a switch, use other
 def getSwitch(swid, item=null) {
-//    getThing(myswitches, swid, item)
     item = item? item : myswitches.find {it.id == swid }
     def resp = item ?   [name: item.displayName, switch: item.currentValue("switch")
                          ] : false
@@ -165,7 +170,7 @@ def getMomentary(swid, item=null) {
     if ( item && item.hasCapability("Switch") ) {
         def curval = item.currentValue("switch")
         if (curval!="on" && curval!="off") { curval = "off" }
-        resp = [name: item.displayName, momentary: item.currentValue("switch")]
+        resp = [name: item.displayName, momentary: curval]
     }
     return resp
 }
@@ -219,6 +224,9 @@ def getThermostat(swid, item=null) {
     if ( item.hasAttribute("humidity") ) {
         resp.put("humidity", item.currentValue("humidity"))
     }
+    if ( item.hasCapability("Battery") ) {
+        resp.put("battery", item.currentValue("battery"))
+    }
     return resp
 }
 
@@ -266,6 +274,10 @@ def getOther(swid, item=null) {
     getThing(myothers, swid, item)
 }
 
+def getPower(swid, item=null) {
+    getThing(mypower, swid, item)
+}
+
 def getmyMode(swid, item=null) {
     def curmode = location.getCurrentMode()
     def curmodename = curmode.getName()
@@ -280,6 +292,7 @@ def getSHMState(swid, item=null){
 	def resp = [name : "Smart Home Monitor", state: status]
 	return resp
 }
+
 def getBlank(swid, item=null) {
     def resp = [name: "Blank ${swid}", size: "${swid}"]
     return resp
@@ -337,7 +350,7 @@ def setOther(swid, cmd, attr, subid ) {
     }
     
     else if ( subid == "switch" ) {
-        def onoff = setOnOff(myothers, "switch", swid, cmd, swattr)
+        def onoff = setOnOff(myothers, "switch", swid, cmd, swattr, subid)
         resp = onoff ? [switch: onoff] : false
     }
     return resp
@@ -350,35 +363,39 @@ def getThing(things, swid, item=null) {
     if ( item ) {
         resp.put("name",item.displayName)
     
-            item.capabilities.each {cap ->
-                // def capname = cap.getName()
-                cap.attributes?.each {attr ->
-                    try {
-                        def othername = attr.getName()
-                        def othervalue = item.currentValue(othername)
-                        resp.put(othername,othervalue)
-                    } catch (ex) {
-                        log.warn "Attempt to read attribute for ${swid} failed"
-                    } 
-                }
-            }
-            // add commands other than standard ones
-            item.supportedCommands.each { comm ->
+        item.capabilities.each {cap ->
+            // def capname = cap.getName()
+            cap.attributes?.each {attr ->
                 try {
-                    def reserved = ["setLevel","setHue",\
-                                    "setSaturation","setColorTemperature","setColor","setAdjustedColor",\
-                                    "indicatorWhenOn","indicatorWhenOff","indicatorNever",\
-                                    "enrollResponse","poll","ping","configure","refresh"]
-                    def comname = comm.getName()
-                    def args = comm.getArguments()
-                    def arglen = args.size()
-                    if ( arglen==0 && ! reserved.contains(comname) ) {
-                        resp.put( "_"+comname, comname )
-                    }
+                    def othername = attr.getName()
+                    def othervalue = item.currentValue(othername)
+                    resp.put(othername,othervalue)
                 } catch (ex) {
+                    if ( state.dologging ) {
+                        log.warn "Attempt to read attribute for ${swid} failed"
+                    }
+                } 
+            }
+        }
+        // add commands other than standard ones
+        item.supportedCommands.each { comm ->
+            try {
+                def reserved = ["setLevel","setHue",\
+                                "setSaturation","setColorTemperature","setColor","setAdjustedColor",\
+                                "indicatorWhenOn","indicatorWhenOff","indicatorNever",\
+                                "enrollResponse","poll","ping","configure","refresh"]
+                def comname = comm.getName()
+                def args = comm.getArguments()
+                def arglen = args.size()
+                if ( arglen==0 && ! reserved.contains(comname) ) {
+                    resp.put( "_"+comname, comname )
+                }
+            } catch (ex) {
+                if ( state.dologging ) {
                     log.warn "Attempt to read command for ${swid} failed"
                 }
             }
+        }
     }
     return resp
 }
@@ -387,7 +404,7 @@ def getThing(things, swid, item=null) {
 def getThings(resp, things, thingtype) {
 //    def resp = []
     def n  = things ? things.size() : 0
-    if ( dologging ) {
+    if ( state.dologging ) {
         log.debug "Number of things of type ${thingtype} = ${n}"
     }
     things?.each {
@@ -425,6 +442,7 @@ def getAllThings() {
     resp = getOthers(resp)
     resp = getBlanks(resp)
     resp = getImages(resp)
+    resp = getPowers(resp)
 
     // optionally include pistons based on user option
     if (state.usepistons) {
@@ -436,8 +454,8 @@ def getAllThings() {
 // this returns just a single active mode, not the list of available modes
 // this is done so we can treat this like any other set of tiles
 def getModes(resp) {
-    if ( dologging ) {
-        log.debug "Getting 4 mode tiles"
+    if ( state.dologging ) {
+        log.debug "Getting 4 SmartThings mode tiles"
     }
     def val = getmyMode(0)
     resp << [name: "Mode ${hubprefix}m1x1", id: "${hubprefix}m1x1", value: val, type: "mode"]
@@ -448,7 +466,7 @@ def getModes(resp) {
 }
 
 def getSHMStates(resp) {
-    if ( dologging ) {
+    if ( state.dologging ) {
         log.debug "Getting Smart Home Monitor state for SmartThings Hub"
     }
     def val = getSHMState(0)
@@ -457,7 +475,7 @@ def getSHMStates(resp) {
 }
 
 def getBlanks(resp) {
-    if ( dologging ) {
+    if ( state.dologging ) {
         log.debug "Getting 4 blank tiles"
     }
     def vals = ["b1x1","b1x2","b2x1","b2x2"]
@@ -496,7 +514,7 @@ def getPistons(resp) {
 
 def getSwitches(resp) {
     def n  = myswitches ? myswitches.size() : 0
-    if ( dologging ) {
+    if ( state.dologging ) {
         log.debug "Number of switches = ${n}"
     }
     myswitches?.each {
@@ -653,6 +671,19 @@ def getOthers(resp) {
     return resp
 }
 
+def getPowers(resp) {
+    def n  = mypower ? mypower.size() : 0
+    if ( state.dologging ) {
+        log.debug "Number of selected power things = ${n}"
+    }
+    mypower?.each {
+        def thatid = it.id;
+        def multivalue = getThing(mypower, thatid, it)
+        resp << [name: it.displayName, id: thatid, value: multivalue, type: "power"]
+    }
+    return resp
+}
+
 def getHubInfo() {
     def resp =  [ sitename: location.getName(),
                   hubtype: "SmartThings" ]
@@ -680,6 +711,7 @@ def autoType(swid) {
     else if ( mysmokes?.find {it.id == swid } ) { swtype= "smoke" }
     else if ( mytemperatures?.find {it.id == swid } ) { swtype= "temperature" }
     else if ( myothers?.find {it.id == swid } ) { swtype= "other" }
+    else if ( mypower?.find {it.id == swid } ) { swtype= "power" }
     else if ( swid=="${hubprefix}shm" ) { swtype= "shm" }
     else if ( swid=="${hubprefix}m1x1" || swid=="${hubprefix}m1x2" || swid=="${hubprefix}m2x1" || swid=="${hubprefix}m2x2" ) { swtype= "mode" }
     else if ( swid=="${hubprefix}b1x1" || swid=="${hubprefix}b1x2" || swid=="${hubprefix}b2x1" || swid=="${hubprefix}b2x2" ) { swtype= "blank" }
@@ -701,38 +733,34 @@ def doAction() {
     def cmdresult = false
     // sendLocationEvent( [name: "housepanel", value: "touch", isStateChange:true, displayed:true, data: [id: swid, type: swtype, attr: swattr, cmd: cmd] ] )
    
-    if ( dologging ) {
-        log.debug "doaction params: cmd = $cmd type = $swtype id = $swid subid = $subid"
-    }
-
     // get the type if auto is set
-    if (swtype=="auto" || swtype=="none" || swtype=="") {
+    if ( (swtype=="auto" || swtype=="none" || swtype=="") && swid ) {
         swtype = autoType(swid)
     }
 
     switch (swtype) {
       case "switch" :
-      	 cmdresult = setSwitch(swid, cmd, swattr)
+      	 cmdresult = setSwitch(swid, cmd, swattr, subid)
          break
          
       case "bulb" :
-      	 cmdresult = setBulb(swid, cmd, swattr)
+      	 cmdresult = setBulb(swid, cmd, swattr, subid)
          break
          
       case "light" :
-      	 cmdresult = setLight(swid, cmd, swattr)
+      	 cmdresult = setLight(swid, cmd, swattr, subid)
          break
          
       case "switchlevel" :
-         cmdresult = setDimmer(swid, cmd, swattr)
+         cmdresult = setDimmer(swid, cmd, swattr, subid)
          break
          
       case "momentary" :
-         cmdresult = setMomentary(swid, cmd, swattr)
+         cmdresult = setMomentary(swid, cmd, swattr, subid)
          break
       
       case "lock" :
-         cmdresult = setLock(swid, cmd, swattr)
+         cmdresult = setLock(swid, cmd, swattr, subid)
          break
          
       case "thermostat" :
@@ -745,23 +773,23 @@ def doAction() {
          
       // note: this requires a special handler for motion to manually set it
       case "motion" :
-    	cmdresult = setSensor(swid, cmd, swattr)
+    	cmdresult = setSensor(swid, cmd, swattr, subid)
         break
 
       case "mode" :
-         cmdresult = setMode(swid, cmd, swattr)
+         cmdresult = setMode(swid, cmd, swattr, subid)
          break
          
       case "shm" :
-         cmdresult = setSHMState(swid, cmd, swattr)
+         cmdresult = setSHMState(swid, cmd, swattr, subid)
          break
 		 
       case "valve" :
-      	 cmdresult = setValve(swid, cmd, swattr)
+      	 cmdresult = setValve(swid, cmd, swattr, subid)
          break
 
       case "door" :
-      	 cmdresult = setDoor(swid, cmd, swattr)
+      	 cmdresult = setDoor(swid, cmd, swattr, subid)
          break
 
       case "piston" :
@@ -772,7 +800,7 @@ def doAction() {
          break;
       
       case "routine" :
-        cmdresult = setRoutine(swid, cmd, swattr)
+        cmdresult = setRoutine(swid, cmd, swattr, subid)
         break;
         
       case "other" :
@@ -782,7 +810,7 @@ def doAction() {
     }
    
     if ( dologging ) {
-        log.debug "doAction: cmd = $cmd type = $swtype id = $swid subid = $subid cmdresult = $cmdresult"
+        log.debug "doAction: cmd= $cmd type= $swtype id= $swid attr= $swattr subid= $subid cmdresult= $cmdresult"
     }
     return cmdresult
 
@@ -794,7 +822,7 @@ def doQuery() {
     def swtype = params.swtype
     def cmdresult = false
 
-	// get the type if auto is set
+    // get the type if auto is set
     if ( (swtype=="auto" || swtype=="none" || swtype=="") && swid ) {
         swtype = autoType(swid)
     }
@@ -858,30 +886,42 @@ def doQuery() {
     case "valve" :
         cmdresult = swid ? getValve(swid) : getValves( [] )
         break
+        
     case "door" :
         cmdresult = swid ? getDoor(swid) : getDoors( [] )
         break
+        
     case "illuminance" :
         cmdresult = swid ? getIlluminance(swid) : getIlluminances( [] )
         break
+        
     case "smoke" :
         cmdresult = swid ? getSmoke(swid) : getSmokes( [] )
         break
+        
     case "temperature" :
         cmdresult = swid ? getTemperature(swid) : getTemperatures( [] )
         break
+        
     case "weather" :
         cmdresult = swid ? getWeather(swid) : getWeathers( [] )
         break
+        
     case "other" :
     	cmdresult = getOther(swid)
         break
+        
+    case "power":
+        cmdresult = getPower(swid)
+        
     case "mode" :
         cmdresult = getmyMode(swid)
         break
+        
     case "shm" :
         cmdresult = getSHMState(swid)
         break
+        
     case "routine" :
         cmdresult = swid ? getRoutine(swid) : getRoutines( [] )
         break
@@ -889,46 +929,51 @@ def doQuery() {
     }
    
     if ( dologging ) {
-        log.debug "doQuery: cmd = $cmd type = $swtype id = $swid subid = $subid cmdresult = $cmdresult"
+        log.debug "doQuery: type= $swtype id= $swid result= $cmdresult"
     }
     return cmdresult
 }
 
 // changed these to just return values of entire tile
-def setOnOff(items, itemtype, swid, cmd, swattr) {
+def setOnOff(items, itemtype, swid, cmd, swattr, subid) {
     def newonoff = false
     def item  = items.find {it.id == swid }
     if (item) {
-        if (cmd=="on" || cmd=="off") {
+        if ( subid=="switch" && swattr.endsWith("on") ) {
+            newonoff = "off"
+        } else if ( subid=="switch" && swattr.endsWith("off") ) {
+            newonoff = "on"
+        } else if (cmd=="on" || cmd=="off") {
             newonoff = cmd
         } else if ( cmd=="toggle" ) {
             newonoff = item.currentValue(itemtype)=="off" ? "on" : "off"
-        } else if ( swattr.endsWith("on") ) {
-            newonoff = "off"
-        } else if ( swattr.endsWith("off") ) {
-            newonoff = "on"
         } else {
             newonoff = item.currentValue(itemtype)=="off" ? "on" : "off"
         }
         newonoff=="on" ? item.on() : item.off()
     }
     return newonoff
-    
 }
 
-def setSwitch(swid, cmd, swattr) {
-    def onoff = setOnOff(myswitches, "switch", swid,cmd,swattr)
+def setSwitch(swid, cmd, swattr, subid) {
+    def onoff = setOnOff(myswitches, "switch", swid, cmd, swattr, subid)
     def resp = onoff ? [switch: onoff] : false
     return resp
 }
 
-def setDoor(swid, cmd, swattr) {
+def setDoor(swid, cmd, swattr, subid) {
     def newonoff
     def resp = false
     def item  = mydoors.find {it.id == swid }
     if (item) {
-        if (cmd=="open" || cmd=="close") {
+        if ( subid=="door" && ( swattr.endsWith("closed") || swattr.endsWith("closing") ) ) {
+            newonoff = "open";
+        } else if ( subid=="door" && ( swattr.endsWith("open") || swattr.endsWith("opening") ) ) {
+            newonoff = "closed";
+        } else if (cmd=="open") {
             newonoff = cmd
+        } else if (cmd=="close") {
+            newonoff = "closed"
         } else {
             newonoff = (item.currentValue("door")=="closed" ||
                         item.currentValue("door")=="closing" )  ? "open" : "closed"
@@ -943,7 +988,7 @@ def setDoor(swid, cmd, swattr) {
 }
 
 // special function to set motion status
-def setSensor(swid, cmd, swattr) {
+def setSensor(swid, cmd, swattr, subid) {
     def resp = false
     def newsw
     def item  = mysensors.find {it.id == swid }
@@ -957,28 +1002,26 @@ def setSensor(swid, cmd, swattr) {
             newsw = "inactive"
         }
         resp = [motion: newsw]
+        if ( item.hasCapability("Battery") ) {
+            resp.put("battery", item.currentValue("battery"))
+        }
     }
     return resp
-    
 }
 
 // replaced this code to treat bulbs as Hue lights with color controls
-def setBulb(swid, cmd, swattr) {
-    // def onoff = setOnOff(mybulbs, "bulb", swid,cmd,swattr)
-    def resp = setGenericLight(mybulbs, swid, cmd, swattr)
-    
+def setBulb(swid, cmd, swattr, subid) {
+    def resp = setGenericLight(mybulbs, swid, cmd, swattr, subid)
     return resp
 }
 
 // changed these to just return values of entire tile
-def setLight(swid, cmd, swattr) {
-    // def onoff = setOnOff(mylights, "light", swid,cmd,swattr)
-    // def resp = onoff ? [light: onoff] : false
-    def resp = setGenericLight(mylights, swid, cmd, swattr)
+def setLight(swid, cmd, swattr, subid) {
+    def resp = setGenericLight(mylights, swid, cmd, swattr, subid)
     return resp
 }
 
-def setMode(swid, cmd, swattr) {
+def setMode(swid, cmd, swattr, subid) {
     def resp
     def themode = swattr.substring(swattr.lastIndexOf(" ")+1)
     def newsw = themode
@@ -993,8 +1036,8 @@ def setMode(swid, cmd, swattr) {
         newsw = allmodes[0].getName()
     }
 
-    if ( dologging ) {
-        log.debug "Mode changed from $themode to $newsw index = $idx "
+    if ( state.dologging ) {
+        log.debug "Mode changed from $themode to $newsw index = $idx subid = $subid"
     }
     location.setMode(newsw);
     resp =  [   name: swid, 
@@ -1005,7 +1048,7 @@ def setMode(swid, cmd, swattr) {
     return resp
 }
 
-def setSHMState(swid, cmd, swattr){
+def setSHMState(swid, cmd, swattr, subid){
     if (cmd == "away") sendLocationEvent(name: "alarmSystemStatus" , value : "away" )
     else if (cmd == "stay") sendLocationEvent(name: "alarmSystemStatus" , value : "stay" )
     else if (cmd == "off") sendLocationEvent(name: "alarmSystemStatus" , value : "off" )
@@ -1018,12 +1061,12 @@ def setSHMState(swid, cmd, swattr){
     return resp
 }
 
-def setDimmer(swid, cmd, swattr) {
-    def resp = setGenericLight(mydimmers, swid, cmd, swattr)
+def setDimmer(swid, cmd, swattr, subid) {
+    def resp = setGenericLight(mydimmers, swid, cmd, swattr, subid)
     return resp
 }
 
-def setGenericLight(mythings, swid, cmd, swattr) {
+def setGenericLight(mythings, swid, cmd, swattr, subid) {
     def resp = false
 
     def item  = mythings.find {it.id == swid }
@@ -1037,14 +1080,14 @@ def setGenericLight(mythings, swid, cmd, swattr) {
     
         def newonoff = item.currentValue("switch")
         if ( dologging ) {
-            log.debug "setGenericLight: swid = $swid cmd = $cmd swattr = $swattr"
+            log.debug "setGenericLight: swid = $swid cmd = $cmd swattr = $swattr subid = $subid"
         }
         // bug fix for grabbing right swattr when long classes involved
         // note: sometime swattr has the command and other times it has the value
         //       just depends. This is a legacy issue when classes were the command
-        if ( swattr.endsWith(" on" ) ) {
+        if ( subid=="switch" && swattr.endsWith(" on" ) ) {
             swattr = "on"
-        } else if ( swattr.endsWith(" off" ) ) {
+        } else if ( subid=="switch" && swattr.endsWith(" off" ) ) {
             swattr = "off"
         }
         
@@ -1263,31 +1306,21 @@ def hsv2rgb(h, s, v) {
   return "#"+rhex+ghex+bhex
 }
 
-def setMomentary(swid, cmd, swattr) {
+def setMomentary(swid, cmd, swattr, subid) {
     def resp = false
-
     def item  = mymomentaries.find {it.id == swid }
     if (item) {
-        if ( dologging ) {
-            log.debug "setMomentary: swid = $swid cmd = $cmd swattr = $swattr"
-        }
-        def newsw = item.currentSwitch
         item.push()
         resp = getMomentary(swid, item)
-        // resp = [name: item.displayName, value: item.currentSwitch, id: swid, type: swtype]
     }
     return resp
-
 }
 
-def setLock(swid, cmd, swattr) {
+def setLock(swid, cmd, swattr, subid) {
     def resp = false
     def newsw
     def item  = mylocks.find {it.id == swid }
-    
-    if ( dologging ) {
-        log.debug "setLock: swid = $swid cmd = $cmd swattr = $swattr"
-    }
+
     if (item) {
         if (cmd=="toggle") {
             newsw = item.currentLock=="locked" ? "unlocked" : "locked"
@@ -1296,12 +1329,16 @@ def setLock(swid, cmd, swattr) {
             } else {
                item.unlock()
             }
+        } else if ( subid=="lock" && swattr.endsWith("unlocked") ) {
+            item.lock()
+            newsw = "locked";
+        } else if ( subid=="lock" && swattr.endsWith("locked") ) {
+            item.unlock()
+            newsw = "unlocked";
         } else if ( cmd=="unknown" ) {
             newsw = item.currentLock
-//    	    log.debug "Ignoring unknown status..."
         } else if ( cmd=="move" ) {
             newsw = item.currentLock
-//    	    log.debug "Ignoring move command for lock..."
         } else if (cmd=="unlock") {
             item.unlock()
             newsw = "unlocked"
@@ -1310,26 +1347,44 @@ def setLock(swid, cmd, swattr) {
             newsw = "locked"
         }
         resp = [lock: newsw]
+        if ( item.hasCapability("Battery") ) {
+            resp.put("battery", item.currentValue("battery"))
+        }
     }
     return resp
-
 }
-def setValve(swid, cmd, swattr) {
+
+def setValve(swid, cmd, swattr, subid) {
     def resp = false
-    def newsw
     def item  = myvalves.find {it.id == swid }
     if (item) {
-        if (cmd!="open" && cmd!="close") {
-            cmd = item.currentValue=="closed" ? "open" : "close"
-        }
-        if (cmd=="open") {
-            item.open()
-            newsw = "open"
-        } else {
+        def newsw = item.currentValue
+        if ( subid=="valve" && swattr.endsWith("open") ) {
             item.close()
-            newsw = "closed"
+        } else if ( subid=="valve" && swattr.endsWith("closed") ) {
+            item.open()
+        } else if ( subid=="switch" && swattr.endsWith("on") ) {
+            item.off()
+        } else if ( subid=="switch" && swattr.endsWith("off") ) {
+            item.on()
+        } else if (cmd=="open") {
+            item.open()
+        } else if (cmd=="close") {
+            item.close()
+        } else if (cmd=="on") {
+            item.on()
+        } else if (cmd=="off") {
+            item.off()
+        } else if ( subid.startsWith("_") ) {
+            subid = subid.substring(1)
+            resp = [:]
+            if ( item.hasCommand(subid) ) {
+                item."$subid"()
+            }
         }
-        resp = [valve: newsw]
+     
+//        resp = [valve: newsw]
+        resp = getThing(myvalves, swid, item)
     }
     return resp
 }
@@ -1342,9 +1397,6 @@ def setThermostat(swid, curtemp, swattr, subid) {
     def cmd = curtemp
     def item  = mythermostats.find {it.id == swid }
     if (item) {
-    if ( dologging ) {
-        log.debug "setThermostat: swid = $swid cmd = $cmd swattr = $swattr subid = $subid"
-    }
         
           resp = getThermostat(swid, item)
           // switch (swattr) {
@@ -1512,9 +1564,6 @@ def setMusic(swid, cmd, swattr, subid) {
     def item  = mymusics.find {it.id == swid }
     def newsw
     if (item) {
-    if ( dologging ) {
-        log.debug "setMusic: swid = $swid cmd = $cmd swattr = $swattr subid = $subid"
-    }
         resp = getMusic(swid, item)
         
         // fix old bug from addition of extra class stuff
@@ -1568,10 +1617,12 @@ def setMusic(swid, cmd, swattr, subid) {
     return resp
 }
 
-def setRoutine(swid, cmd, swattr) {
+def setRoutine(swid, cmd, swattr, subid) {
     def routine = location.helloHome?.getPhrases().find{ it.id == swid }
-    if (routine) {
+    if (subid=="label" && routine) {
         location.helloHome?.execute(routine.label)
+    } else if (cmd) {
+        location.helloHome?.execute(cmd)
     }
     return routine
 }
@@ -1594,23 +1645,6 @@ def setRoutine(swid, cmd, swattr) {
 /*  You should have received a copy of the GNU General Public License    */
 /*  along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 /*************************************************************************/
-/*  Initialize the connector in your initialize() method using           */
-/*     webCoRE_init()                                                    */
-/*  Optionally, pass the string name of a method to call when a piston   */
-/*  is executed:                                                         */
-/*     webCoRE_init('pistonExecutedMethod')                              */
-/*************************************************************************/
-/*  List all available pistons by using one of the following:            */
-/*     webCoRE_list() - returns the list of id/name pairs                */
-/*     webCoRE_list('id') - returns the list of piston IDs               */
-/*     webCoRE_list('name') - returns the list of piston names           */
-/*************************************************************************/
-/*  Execute a piston by using the following:                             */
-/*     webCoRE_execute(pistonIdOrName)                                   */
-/*  The execute method accepts either an id or the name of a             */
-/*  piston, previously retrieved by webCoRE_list()                       */
-/*************************************************************************/
-
 private webCoRE_handle(){return'webCoRE'}
 private webCoRE_init(pistonExecutedCbk)
 {
@@ -1622,10 +1656,10 @@ private webCoRE_poll(){sendLocationEvent([name: webCoRE_handle(),value:'poll',is
 public  webCoRE_execute(pistonIdOrName,Map data=[:]){def i=(state.webCoRE?.pistons?:[]).find{(it.name==pistonIdOrName)||(it.id==pistonIdOrName)}?.id;if(i){sendLocationEvent([name:i,value:app.label,isStateChange:true,displayed:false,data:data])}}
 public  webCoRE_list(mode)
 {
-	def p=state.webCoRE?.pistons;
+    def p=state.webCoRE?.pistons;
     if(p)p.collect{
-		mode=='id'?it.id:(mode=='name'?it.name:[id:it.id,name:it.name])
-        if ( dologging ) {
+        mode=='id'?it.id:(mode=='name'?it.name:[id:it.id,name:it.name])
+        if ( state.dologging ) {
             log.debug "Reading piston: ${it}"
         }
     }

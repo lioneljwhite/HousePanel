@@ -50,54 +50,39 @@ $.fn.isAuto = function(dimension){
 function getOnOff(str_type, subid) {
     var onoff = ["",""];
     
-    switch (subid) {
-        case "switch" :
-        case "switchlevel":
-        case "bulb":
-        case "light":
-        case "momentary":
-            onoff = ["on","off"];
-            break;
-        case "contact":
-        case "door":
-        case "valve":
-            onoff = ["open","closed"];
-            break;
-        case "motion":
-            onoff = ["active","inactive"];
-            break;
-        case "lock":
-            onoff = ["locked","unlocked"];
-            break;
-        case "pistonName":
-            onoff = ["firing","idle"];
-            break;
-        case "thermofan":
-            onoff = ["auto","on"];
-            break;
-        case "thermomode":
-            onoff = ["heat","cool","auto","off"];
-            break;
-        case "thermostate":
-            onoff = ["idle","heating","cooling","off"];
-            break;
-        case "musicstatus":
-            onoff = ["stopped","paused","playing"];
-            break;
-        case "musicmute":
-            onoff = ["muted","unmuted"];
-            break;
-        case "presence":
-            onoff = ["present","absent"];
-            break;
-        case "state":
-            if ( str_type==="shm" ) {
-                onoff = ["off","stay","away"];
-            } else if ( str_type==="hsm" ) {
-                onoff = ["armedAway","armedHome","armedNight","disarmed","allDisarmed"];
-            }
-            break;
-            
+    // handle the cases for custom tiles that could have any subid starting with valid names
+    if ( subid.startsWith("switch" ) ) {
+        onoff = ["on","off"];
+    } else if ( (str_type==="momentary") && subid.startsWith("momentary" ) ) {
+        onoff = ["on","off"];
+    } else if ( subid.startsWith("contact" ) || subid.startsWith("door" ) || subid.startsWith("valve" ) ) {
+        onoff = ["open","closed"];
+    } else if ( subid.startsWith("lock" ) ) {
+        onoff = ["locked","unlocked"];
+    } else if ( subid.startsWith("motion") ) {
+        onoff = ["active","inactive"];
+    } else if ( subid.startsWith("pistonName" ) ) {
+        onoff = ["firing","idle"];
+    } else if ( subid.startsWith("thermofan" ) ) {
+        onoff = ["auto","on"];
+    } else if ( subid.startsWith("thermomode" ) ) {
+        onoff = ["active","inactive"];
+    } else if ( subid.startsWith("thermostate" ) ) {
+        onoff = ["active","inactive"];
+    } else if ( subid.startsWith("thermomode" ) ) {
+        onoff = ["heat","cool","auto","off"];
+    } else if ( subid.startsWith("thermostate" ) ) {
+        onoff = ["idle","heating","cooling","off"];
+    } else if ( subid.startsWith("musicstatus" ) ) {
+        onoff = ["stopped","paused","playing"];
+    } else if ( subid.startsWith("musicmute" ) ) {
+        onoff = ["muted","unmuted"];
+    } else if ( subid.startsWith("presence" ) ) {
+        onoff = ["present","absent"];
+    } else if ( str_type==="shm" && subid.startsWith("state" ) ) {
+        onoff = ["off","stay","away"];
+    } else if ( str_type==="hsm" && subid.startsWith("state" ) ) {
+        onoff = ["armedAway","armedHome","armedNight","disarmed","allDisarmed"];
     }
     
     return onoff;
@@ -258,6 +243,7 @@ function toggleTile(target, str_type, subid, thingindex) {
     // var target = "#tileDialog " + getCssRuleTarget(str_type, subid, thingindex);
     // var target = "#tileDisplay " + getCssRuleTarget(str_type, subid, thingindex);
     var swval = $(target).html();
+    // var currentclass = $(target).attr("class");
     // var subid = $(target).attr("subid");
     console.log("toggleTile: target= " + target + " tile type= "+str_type+" subid= "+subid + " swval= "+swval);
     $('#onoffTarget').html("");
@@ -339,7 +325,7 @@ function initDialogBinds(str_type, thingindex) {
         var newname = $("#editName").val();
         $(target1).html(newname);
         cm_Globals.reload = true;
-        saveTileEdit(str_type, thingindex, newname);
+        saveTileEdit(str_type, thingindex, newname, "false");
         event.stopPropagation;
     });
     
@@ -348,7 +334,7 @@ function initDialogBinds(str_type, thingindex) {
         var newname = $("#editName").val();
         $(target1).html(newname);
         cm_Globals.reload = true;
-        saveTileEdit(str_type, thingindex, newname);
+        saveTileEdit(str_type, thingindex, newname, "false");
         event.stopPropagation;
     });
 
@@ -874,8 +860,13 @@ function editTile(str_type, thingindex, aid, bid, thingclass, hubnum, htmlconten
                    " of Name: " + thingindex + "</div>";
         
     } else {
+        if ( hubnum < 0 ) {
+            var hubstr = " Hub not applicable";
+        } else {
+            hubstr = " From hub #" + hubnum;
+        }
         dialog_html += "<div class='editheader' id='editheader'>Editing Tile #" + thingindex + 
-                   " of Type: " + str_type + " From hub #" + hubnum + "</div>";
+                   " of Type: " + str_type + hubstr + "</div>";
     }
 
     // option on the left side - colors and options
@@ -887,7 +878,7 @@ function editTile(str_type, thingindex, aid, bid, thingclass, hubnum, htmlconten
     
     // tileEdit display on the far right side 
     dialog_html += "<div id='tileDisplay' class='tileDisplay'>";
-    dialog_html += "<div id='editInfo' class='editInfo'>Click to Select or Change State</div>";
+    dialog_html += "<div id='editInfo' class='editInfo'>Select or Change State</div>";
     
     // we either use the passed in content or make an Ajax call to get the content
     var jqxhr = null;
@@ -937,7 +928,11 @@ function editTile(str_type, thingindex, aid, bid, thingclass, hubnum, htmlconten
                 // alert("clk = "+clk);
                 if ( clk==="okay" ) {
                     var newname = $("#editName").val();
-                    saveTileEdit(str_type, thingindex, newname);
+                    var fastpoll = ""
+//                    if ( $("#fastPoll").prop("checked") ) {
+//                        fastpoll = "fast";
+//                    }
+                    saveTileEdit(str_type, thingindex, newname, fastpoll);
                 } else if ( clk==="cancel" ) {
                     cancelTileEdit(str_type, thingindex);
                 }
@@ -1172,7 +1167,7 @@ function setsubid(str_type) {
     return subid;
 }
 
-function saveTileEdit(str_type, thingindex, newname) {
+function saveTileEdit(str_type, thingindex, newname, fastpoll) {
     var returnURL;
     try {
         returnURL = $("input[name='returnURL']").val();
@@ -1194,8 +1189,9 @@ function saveTileEdit(str_type, thingindex, newname) {
     var results = "";
     
     // post changes to save them in a custom css file
+    // send fastpoll in the subid
     $.post(returnURL, 
-        {useajax: "savetileedit", id: "1", type: str_type, value: sheetContents, attr: newname, tile: thingindex},
+        {useajax: "savetileedit", id: "1", type: str_type, value: sheetContents, attr: newname, tile: thingindex, subid: fastpoll},
         function (presult, pstatus) {
             if (pstatus==="success" ) {
                 results = "success: msg = " + presult;
@@ -1564,6 +1560,7 @@ function initColor(str_type, subid, thingindex) {
         ishidden += "<label class=\"iconChecks\" for=\"isHidden\">Hide Element?</label></div><br />";
 
         var inverted = "<div class='editSection_input autochk'><input type='checkbox' id='invertIcon'><label class=\"iconChecks\" for=\"invertIcon\">Invert Element?</label></div>";
+        // inverted += "<div class='editSection_input'><input type='checkbox' id='fastPoll'><label class=\"iconChecks\" for=\"fastPoll\">Fast Poll?</label></div>";
 
         var border = "<div class='editSection_input'><label>Border Type:</label>";
         border += "<select name=\"borderType\" id=\"borderType\" class=\"ddlDialog\">";
@@ -1638,6 +1635,12 @@ function initColor(str_type, subid, thingindex) {
             addCSSRule(cssRuleTarget, strInvert, false);	
         }
     });
+    
+    // if user changes polling, force page reload
+//    $("#fastPoll").off('change');
+//    $("#fastPoll").on("change",function() {
+//        cm_Globals.reload = true;
+//    });
 
     $("#editEffect").off('change');
     $("#editEffect").on('change', function (event) {
@@ -1753,7 +1756,6 @@ function initColor(str_type, subid, thingindex) {
     // determine hiding of element
     $("#isHidden").off('change');
     $("#isHidden").on('change', function(event) {
-        var str_type = $("#tileDialog").attr("str_type");
         var thingindex = $("#tileDialog").attr("thingindex");
         var subid = $("#subidTarget").html();
         var strCaller = $($(event.target)).attr("target");
@@ -1795,6 +1797,20 @@ function initColor(str_type, subid, thingindex) {
         $("#invertIcon").prop("checked",false);
     }
     
+    // set initial fast poll check box
+    // disable fast polling for pages, controller, and frames (they are slow polled)
+//    if ( str_type==="blank" || str_type==="image" || str_type==="custom" || 
+//         str_type==="video" || str_type==="clock" ) {
+//        $("#fastPoll").prop("checked",true);
+//        $("#fastPoll").prop("disabled",false);
+//    } else if ( str_type==="page" || str_type==="control" || str_type==="frame" ) {
+//        $("#fastPoll").prop("checked",false);
+//        $("#fastPoll").prop("disabled",true);
+//    } else {
+//        $("#fastPoll").prop("checked",false);
+//        $("#fastPoll").prop("disabled",false);
+//    }
+    
     // set the initial icon none check box
     var isicon = $(target).css("background-image");
     if ( isicon === "none") {
@@ -1826,8 +1842,9 @@ function initColor(str_type, subid, thingindex) {
     // set initial hidden status
     if ( subid!=="wholetile" ) {
         var ish1= $(target).css("display");
-        var ish2= $("div.overlay."+str_type+".v_"+thingindex).css("display");
-        if ( ish1 === "none" || ish2 === "none") {
+        var ish2= $("div.overlay."+subid+".v_"+thingindex).css("display");
+        var ish3 = $("div.overlay." + subid).css("display");
+        if ( ish1 === "none" || ish2 === "none" || ish3 ==="none") {
             $("#isHidden").prop("checked", true);
             defaultShow = "inline-block";
             defaultOverlay = "block";
@@ -2072,7 +2089,7 @@ function resetCSSRules(str_type, subid, thingindex){
             onoff.forEach( function(rule, idx, arr) {
                 var subtarget = getCssRuleTarget(str_type, rule, thingindex);
                 removeCSSRule(subtarget, thingindex, null, 0);
-            })
+            });
         }
 }
 
